@@ -186,7 +186,3 @@ honeywatch/
 ├── migrations/           # Alembic マイグレーション
 └── tests/                # pytest テスト
 ```
-
-## ライセンス
-
-
