@@ -1,0 +1,142 @@
+name: honeywatch
+
+# HoneyWatch Docker Compose 構成
+# ネットワーク分離: honeypot_net（外部公開用）/ internal_net（内部通信用）
+
+services:
+  # === インフラ ===
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: honeywatch-postgres
+    environment:
+      POSTGRES_USER: honeywatch
+      POSTGRES_PASSWORD: honeywatch
+      POSTGRES_DB: honeywatch
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - internal_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U honeywatch"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: honeywatch-redis
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - internal_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # === バックエンド ===
+
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: honeywatch-worker
+    command: python -m honeywatch.worker
+    env_file:
+      - ../.env
+    environment:
+      DB_HOST: postgres
+      REDIS_HOST: redis
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - internal_net
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: honeywatch-api
+    command: uvicorn honeywatch.api.main:app --host 0.0.0.0 --port 8000
+    env_file:
+      - ../.env
+    environment:
+      DB_HOST: postgres
+      REDIS_HOST: redis
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - internal_net
+    restart: unless-stopped
+
+  # === Honeypot ===
+
+  honeypot:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: honeywatch-honeypot
+    command: python -m honeywatch.honeypot
+    env_file:
+      - ../.env
+    environment:
+      REDIS_HOST: redis
+    ports:
+      # SSH Honeypot — 外部公開
+      - "0.0.0.0:2222:2222"
+      # HTTP Honeypot — 外部公開
+      - "0.0.0.0:8080:8080"
+    volumes:
+      - ssh_host_keys:/app/data/ssh_host_keys
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - honeypot_net
+      - internal_net
+    restart: unless-stopped
+
+  # === フロントエンド ===
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.frontend
+    container_name: honeywatch-frontend
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks:
+      - internal_net
+    restart: unless-stopped
+
+networks:
+  # Honeypot 用ネットワーク（外部からのトラフィックを受ける）
+  honeypot_net:
+    driver: bridge
+  # 内部通信用ネットワーク（DB, Redis, API, Worker 間）
+  # internal: true は設定しない — API / Frontend はホストからアクセスする必要があるため
+  # DB / Redis はポート公開を 127.0.0.1 に限定することでセキュリティを確保
+  internal_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  ssh_host_keys:

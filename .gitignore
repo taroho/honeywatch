@@ -216,3 +216,21 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# HoneyWatch temporary scripts
+setup.sh
+check.sh
+mypy_check.sh
+
+# SSH host keys (generated at runtime)
+data/ssh_host_keys/
+
+# Frontend dependencies
+frontend/node_modules/
+frontend/dist/
+
+# uv lock file
+uv.lock
+
+
+.env
