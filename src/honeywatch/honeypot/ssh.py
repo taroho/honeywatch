@@ -4,7 +4,6 @@ asyncssh を使用して SSH サーバーを模倣する。
 すべての認証試行を記録し、常に認証を失敗させる。
 """
 
-import asyncio
 import os
 import time
 from pathlib import Path
@@ -20,7 +19,7 @@ from honeywatch.honeypot.base import BaseHoneypot
 logger = get_logger(__name__)
 
 
-class SSHHoneypotServer(asyncssh.SSHServer):  # type: ignore[misc]
+class SSHHoneypotServer(asyncssh.SSHServer):
     """asyncssh 用の SSH サーバーハンドラー.
 
     接続ごとにインスタンスが生成される。
@@ -39,7 +38,7 @@ class SSHHoneypotServer(asyncssh.SSHServer):  # type: ignore[misc]
         self._peer_addr: tuple[str, int] | None = None
         self._client_version = ""
 
-    def connection_made(self, conn: asyncssh.SSHServerConnection) -> None:  # type: ignore[override]
+    def connection_made(self, conn: asyncssh.SSHServerConnection) -> None:
         """接続が確立されたときに呼ばれる."""
         peername = conn.get_extra_info("peername")
         if peername:

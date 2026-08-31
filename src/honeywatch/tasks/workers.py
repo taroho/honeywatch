@@ -8,7 +8,6 @@ PostgreSQL 接続断時は未 ACK のままイベントを Redis に保持し、
 import asyncio
 import signal
 import uuid
-from datetime import datetime
 
 from honeywatch.collector.events import AttackEvent
 from honeywatch.collector.handler import EventQueue
@@ -16,6 +15,14 @@ from honeywatch.core.config import get_settings
 from honeywatch.core.logging import get_logger, setup_logging
 from honeywatch.db.models import AttackEventModel
 from honeywatch.db.session import close_db, get_session, init_db
+from honeywatch.detection.classifier import (
+    ATTACK_SUSPICIOUS,
+    SEVERITY_LOW,
+    AttackClassifier,
+    ClassificationResult,
+)
+from honeywatch.detection.ipcontext import IPContextStore
+from honeywatch.detection.patterns import DetectionRuleLoader
 
 logger = get_logger(__name__)
 
@@ -44,6 +51,11 @@ class EventWorker:
         self._event_queue: EventQueue | None = None
         self._db_retry_delay = 2.0  # DB 接続エラー時のリトライ間隔（秒）
         self._db_max_retries = 10
+        # Phase 2: 攻撃分類コンポーネント
+        self._classifier: AttackClassifier | None = None
+        self._ip_context_store: IPContextStore | None = None
+        # Brute Force 判定用の時間窓（Detection Rule から取得）
+        self._brute_force_window = 600
 
     async def start(self) -> None:
         """ワーカーを起動し、イベント消費ループを開始する."""
@@ -61,6 +73,15 @@ class EventWorker:
         # EventQueue 接続
         self._event_queue = EventQueue()
         await self._event_queue.connect()
+
+        # Phase 2: 攻撃分類コンポーネントを初期化
+        # Detection Rule を読み込み（不正な YAML なら起動時に例外送出）
+        rules = DetectionRuleLoader.load()
+        self._classifier = AttackClassifier(rules)
+        self._brute_force_window = rules.attack_types.brute_force.time_window
+        # IPContext ストア（Redis）に接続
+        self._ip_context_store = IPContextStore()
+        await self._ip_context_store.connect()
 
         self._running = True
 
@@ -84,8 +105,50 @@ class EventWorker:
         if self._event_queue is not None:
             await self._event_queue.close()
 
+        if self._ip_context_store is not None:
+            await self._ip_context_store.close()
+
         await close_db()
         logger.info("worker.stopped", consumer_name=self._consumer_name)
+
+    async def _classify_event(self, event: AttackEvent) -> ClassificationResult:
+        """イベントを分類する（例外時は suspicious_request にフォールバック）.
+
+        IPContext を Redis から取得・更新し、AttackClassifier で分類する。
+        分類処理で例外が発生してもイベントは失われないよう、
+        フォールバック結果（suspicious_request / LOW）を返す。
+
+        Args:
+            event: 分類対象のイベント
+
+        Returns:
+            分類結果（attack_type + severity）
+        """
+        try:
+            assert self._ip_context_store is not None  # noqa: S101
+            assert self._classifier is not None  # noqa: S101
+
+            # IPContext を更新して取得（試行回数・接続ポート）
+            context = await self._ip_context_store.update_and_get(
+                source_ip=event.source_ip,
+                destination_port=event.destination_port,
+                time_window=self._brute_force_window,
+            )
+
+            # 分類実行
+            return self._classifier.classify(event, context)
+
+        except Exception as e:
+            # 分類失敗時もイベントは保存する（design.md の Error Handling 準拠）
+            logger.warning(
+                "worker.classification_failed",
+                event_id=str(event.id),
+                error=str(e),
+            )
+            return ClassificationResult(
+                attack_type=ATTACK_SUSPICIOUS,
+                severity=SEVERITY_LOW,
+            )
 
     async def _process_event(self, entry_id: str, event: AttackEvent) -> None:
         """1件のイベントを処理する（DB に保存して ACK）.
@@ -97,6 +160,9 @@ class EventWorker:
             entry_id: Redis Stream エントリ ID
             event: パース済みの AttackEvent
         """
+        # 攻撃分類（DB リトライループの外で1回だけ実行）
+        classification = await self._classify_event(event)
+
         for attempt in range(self._db_max_retries):
             try:
                 # AttackEvent → AttackEventModel に変換して保存
@@ -109,6 +175,8 @@ class EventWorker:
                     protocol=event.protocol,
                     event_type=event.event_type,
                     raw_data=event.raw_data,
+                    attack_type=classification.attack_type,
+                    severity=classification.severity,
                 )
 
                 async for session in get_session():
@@ -124,6 +192,8 @@ class EventWorker:
                     event_id=str(event.id),
                     entry_id=entry_id,
                     protocol=event.protocol,
+                    attack_type=classification.attack_type,
+                    severity=classification.severity,
                 )
                 return
 

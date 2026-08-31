@@ -220,6 +220,8 @@ __marimo__/
 # HoneyWatch temporary scripts
 setup.sh
 check.sh
+check2.sh
+check2.txt
 mypy_check.sh
 
 # SSH host keys (generated at runtime)

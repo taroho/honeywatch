@@ -6,6 +6,7 @@ structlog を使用して JSON 形式の構造化ログを出力する。
 
 import logging
 import sys
+from typing import cast
 
 import structlog
 
@@ -76,4 +77,5 @@ def get_logger(name: str) -> structlog.stdlib.BoundLogger:
     Returns:
         structlog の BoundLogger インスタンス
     """
-    return structlog.get_logger(name)
+    # structlog.get_logger は Any を返すため明示的にキャストする
+    return cast("structlog.stdlib.BoundLogger", structlog.get_logger(name))

@@ -1,23 +1,43 @@
+import { useState } from "react";
 import { Header } from "../components/Header";
 import { SummaryCard } from "../components/SummaryCard";
 import { AttackTimeline } from "../components/AttackTimeline";
 import { TopIPsTable } from "../components/TopIPsTable";
 import { ProtocolChart } from "../components/ProtocolChart";
 import { RecentEventsTable } from "../components/RecentEventsTable";
+import { AttackTypeChart } from "../components/AttackTypeChart";
+import { SeverityBreakdown } from "../components/SeverityBreakdown";
+import { RiskRankingTable } from "../components/RiskRankingTable";
 import { useDashboardSummary } from "../hooks/useDashboardSummary";
 import { useTimeline } from "../hooks/useTimeline";
 import { useTopIPs } from "../hooks/useTopIPs";
 import { useRecentEvents } from "../hooks/useRecentEvents";
+import { useAttackTypes } from "../hooks/useAttackTypes";
+import { useSeveritySummary } from "../hooks/useSeveritySummary";
+import { useRiskRanking } from "../hooks/useRiskRanking";
+
+// 集計期間の選択肢
+const PERIOD_OPTIONS = ["1h", "6h", "24h", "7d"] as const;
 
 /**
  * Dashboard ページ
  * 全コンポーネントを組み合わせてレイアウトする
  */
 export function DashboardPage() {
+  // 分析セクションの集計期間（デフォルトは 7d）
+  const [period, setPeriod] = useState<string>("7d");
+
   const { data: summary, loading: summaryLoading } = useDashboardSummary();
   const { data: timeline, loading: timelineLoading } = useTimeline();
   const { data: topIPs, loading: topIPsLoading } = useTopIPs();
   const { data: events, loading: eventsLoading } = useRecentEvents(10);
+
+  // Phase 2: 分析データ（期間連動）
+  const { data: attackTypes, loading: attackTypesLoading } =
+    useAttackTypes(period);
+  const { data: severity, loading: severityLoading } =
+    useSeveritySummary(period);
+  const { data: riskRanking, loading: riskLoading } = useRiskRanking(10, period);
 
   return (
     <div className="min-h-screen bg-hw-bg p-6">
@@ -51,7 +71,10 @@ export function DashboardPage() {
 
         {/* タイムライン (全幅) */}
         <div className="mb-6">
-          <AttackTimeline data={timeline} loading={timelineLoading || summaryLoading} />
+          <AttackTimeline
+            data={timeline}
+            loading={timelineLoading || summaryLoading}
+          />
         </div>
 
         {/* Top IPs + Protocol Chart (2カラム) */}
@@ -62,6 +85,40 @@ export function DashboardPage() {
             httpCount={summary?.http_attacks_today ?? 0}
             loading={summaryLoading}
           />
+        </div>
+
+        {/* === Phase 2: Detection Analysis セクション === */}
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-bold text-gray-100">
+            Detection Analysis
+          </h2>
+          {/* 期間セレクタ */}
+          <div className="flex gap-1">
+            {PERIOD_OPTIONS.map((opt) => (
+              <button
+                key={opt}
+                onClick={() => setPeriod(opt)}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                  period === opt
+                    ? "bg-hw-accent text-white"
+                    : "bg-hw-card text-gray-400 hover:text-gray-200"
+                }`}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 攻撃タイプ別グラフ + Severity 内訳 (2カラム) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+          <AttackTypeChart data={attackTypes} loading={attackTypesLoading} />
+          <SeverityBreakdown data={severity} loading={severityLoading} />
+        </div>
+
+        {/* Risk ランキング (全幅) */}
+        <div className="mb-6">
+          <RiskRankingTable data={riskRanking} loading={riskLoading} />
         </div>
 
         {/* 最新イベントテーブル (全幅) */}

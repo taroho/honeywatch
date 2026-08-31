@@ -5,7 +5,7 @@ Honeypot が生成するイベントの共通フォーマットと、
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -49,7 +49,7 @@ class AttackEvent(BaseModel):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, description="イベント UUID")
     timestamp: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
         description="イベント発生タイムスタンプ（UTC）",
     )
     source_ip: str = Field(description="送信元 IP アドレス")

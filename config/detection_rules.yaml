@@ -1,0 +1,87 @@
+# HoneyWatch 攻撃検知ルール
+#
+# このファイルを編集して閾値・パターンを調整できる（コード変更不要）。
+# 変更後はワーカー/API を再起動すると反映される。
+#
+# 実データ収集後（AWS デプロイ後）に、実際の攻撃分布を見て閾値を調整する想定。
+
+# 攻撃タイプの判定基準
+attack_types:
+  # SSH 認証の反復試行
+  brute_force:
+    protocol: ssh
+    min_attempts: 5 # 同一 IP からこの回数以上の試行で brute_force と判定
+    time_window: 600 # 集計する時間窓（秒）
+
+  # 複数ポートへの接続（ポートスキャン）
+  port_scan:
+    min_distinct_ports: 3 # 同一 IP がこの数以上の異なるポートに接続
+    time_window: 300
+
+  # Web パスのスキャン（機密パスへのアクセス）
+  http_scan:
+    protocol: http
+    paths:
+      - "/admin"
+      - "/wp-admin"
+      - "/wp-login.php"
+      - "/phpmyadmin"
+      - "/.env"
+      - "/.git"
+      - "/administrator"
+      - "/manager/html"
+
+  # 既知の弱いユーザー名/パスワードによる認証攻撃
+  credential_attack:
+    protocol: ssh
+    usernames: # よく狙われるユーザー名
+      - "root"
+      - "admin"
+      - "administrator"
+      - "test"
+      - "user"
+      - "oracle"
+      - "postgres"
+      - "ubuntu"
+    passwords: # よく使われる弱いパスワード
+      - "123456"
+      - "password"
+      - "admin"
+      - "root"
+      - "12345678"
+      - "qwerty"
+
+  # コマンドインジェクション試行
+  command_injection:
+    patterns: # パス・ボディに含まれると検出する文字列
+      - ";"
+      - "|"
+      - "$("
+      - "&&"
+      - "../"
+      - "`"
+      - "wget "
+      - "curl "
+      - "/bin/sh"
+      - "/bin/bash"
+
+# Severity（深刻度）判定基準
+# 上から順に評価し、最初にマッチしたものを採用する
+severity_rules:
+  HIGH:
+    - attack_type: brute_force
+      min_attempts: 100 # 大量試行は HIGH
+    - attack_type: command_injection # コマンドインジェクションは常に HIGH
+    - attack_type: credential_attack
+      min_attempts: 50
+
+  MEDIUM:
+    - attack_type: brute_force
+      min_attempts: 20
+    - attack_type: port_scan
+    - attack_type: credential_attack
+
+  LOW:
+    - attack_type: http_scan
+    - attack_type: brute_force # 上記閾値未満の brute_force
+    - attack_type: suspicious_request

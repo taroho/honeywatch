@@ -156,8 +156,8 @@ class HTTPHoneypot(BaseHoneypot):
             body_bytes = await request.read()
             if body_bytes:
                 body_preview = body_bytes[:1024].decode("utf-8", errors="replace")
-        except Exception:
-            pass
+        except Exception as e:  # noqa: BLE001 — ボディ取得失敗は記録して継続
+            logger.debug("http_honeypot.body_read_failed", error=str(e))
 
         # ヘッダーを辞書に変換
         headers = {k: v for k, v in request.headers.items()}

@@ -188,11 +188,49 @@ Honeypot は攻撃者が使うパスワードを記録します。ここには2�
 | headers | dict | 攻撃ツールのフィンガープリント |
 | body_preview | string (1024B) | Command Injection 検出 |
 
+## Detection レイヤー（Phase 2）
+
+Phase 2 で、Worker のイベント永続化フローに攻撃分類ステップを追加した。
+
+### 分類フロー
+
+```
+Worker がイベント受信
+  → IPContextStore（Redis）で送信元 IP の試行回数・接続ポートを更新・取得
+  → AttackClassifier で attack_type を判定（優先度順）
+      command_injection > credential_attack > brute_force
+      > port_scan > http_scan > suspicious_request
+  → SeverityEvaluator で severity を判定（HIGH / MEDIUM / LOW）
+  → attack_type + severity を付与して PostgreSQL に保存
+```
+
+分類が失敗してもイベントは `suspicious_request` として保存され、消失しない。
+
+### 判定基準の外部化
+
+攻撃タイプの閾値・パターン、Severity 判定基準はすべて `config/detection_rules.yaml`
+で管理する。閾値を変えたい場合はコードを変更せず YAML を編集して再起動するだけでよい。
+
+### IP 分析・Risk Score
+
+送信元 IP 単位で攻撃履歴を集約し、Risk Score（0〜100）を算出する。
+
+```
+risk_score = min(100, 頻度スコア(0-40) + 多様性スコア(0-30) + Severity スコア(最大30))
+```
+
+算出結果は分析 API（`/api/v1/analysis/*`）経由で Dashboard に提供される。
+
+### 既存データの再分類
+
+Phase 1 で収集済みの未分類イベントは、バッチ処理（`python -m honeywatch.detection.backfill`）
+で遡って分類できる。時系列順に IPContext を再構築しながら分類する。
+
 ## 今後の拡張ポイント
 
 | Phase | 拡張内容 | アーキテクチャへの影響 |
 |-------|---------|---------------------|
-| Phase 2 | 攻撃分類エンジン | Worker 内に Classification ステップを追加 |
+| Phase 2（実装済み） | 攻撃分類エンジン | Worker 内に Classification ステップを追加 |
 | Phase 3 | MITRE ATT&CK mapping | 別モジュール追加（detection/mitre.py） |
 | Phase 3 | GeoIP | Worker で記録時に国コード・ASN を付与 |
 | Phase 4 | AI 分析 | 別サービスとして追加。API 経由でログを渡す |

@@ -35,6 +35,7 @@ COPY --from=deps /app/.venv /app/.venv
 # ソースコードをコピー
 COPY src/ ./src/
 COPY migrations/ ./migrations/
+COPY config/ ./config/
 COPY alembic.ini ./
 
 # PATH に仮想環境を追加

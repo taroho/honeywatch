@@ -4,7 +4,7 @@
 認証必須。
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Query
 
@@ -26,7 +26,7 @@ async def get_dashboard_summary(
     Returns:
         サマリー統計データ
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     period_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     period_end = now
 
@@ -59,7 +59,7 @@ async def get_dashboard_timeline(
     Returns:
         タイムラインデータ
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # 期間を計算
     period_map: dict[str, timedelta] = {
@@ -104,7 +104,7 @@ async def get_dashboard_top_ips(
     Returns:
         IP ランキングデータ
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     period_map: dict[str, timedelta] = {
         "1h": timedelta(hours=1),

@@ -5,12 +5,24 @@ API 層やワーカーから利用される。
 """
 
 from datetime import datetime
+from typing import TypedDict
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from honeywatch.db.models import AttackEventModel
+
+
+class IPAggregate(TypedDict):
+    """IP 別集計データ（プロファイル構築・Risk ランキング用）."""
+
+    source_ip: str
+    first_seen: datetime | None
+    last_seen: datetime | None
+    total_events: int
+    attack_types: list[str]
+    severities: list[str]
 
 
 class AttackEventRepository:
@@ -271,3 +283,186 @@ class AttackEventRepository:
             }
             for row in rows
         ]
+
+    # === Phase 2: 分析用集計メソッド ===
+
+    async def count_by_attack_type(
+        self,
+        since: datetime,
+        until: datetime,
+    ) -> list[dict[str, object]]:
+        """攻撃タイプ別のイベント件数を取得する.
+
+        Args:
+            since: 集計開始日時
+            until: 集計終了日時
+
+        Returns:
+            攻撃タイプごとの件数リスト
+        """
+        result = await self._session.execute(
+            select(
+                AttackEventModel.attack_type,
+                func.count(AttackEventModel.id).label("cnt"),
+            )
+            .where(
+                AttackEventModel.timestamp >= since,
+                AttackEventModel.timestamp <= until,
+                AttackEventModel.attack_type.is_not(None),
+            )
+            .group_by(AttackEventModel.attack_type)
+            .order_by(func.count(AttackEventModel.id).desc())
+        )
+        rows = result.all()
+        return [
+            {"attack_type": row.attack_type, "count": row.cnt} for row in rows
+        ]
+
+    async def count_by_severity(
+        self,
+        since: datetime,
+        until: datetime,
+    ) -> dict[str, int]:
+        """Severity 別のイベント件数を取得する.
+
+        Args:
+            since: 集計開始日時
+            until: 集計終了日時
+
+        Returns:
+            Severity をキー、件数を値とする辞書
+        """
+        result = await self._session.execute(
+            select(
+                AttackEventModel.severity,
+                func.count(AttackEventModel.id).label("cnt"),
+            )
+            .where(
+                AttackEventModel.timestamp >= since,
+                AttackEventModel.timestamp <= until,
+                AttackEventModel.severity.is_not(None),
+            )
+            .group_by(AttackEventModel.severity)
+        )
+        rows = result.all()
+        return {row.severity: row.cnt for row in rows}
+
+    async def get_ip_aggregate(
+        self,
+        source_ip: str,
+    ) -> IPAggregate | None:
+        """指定 IP の集計データを取得する（プロファイル構築用）.
+
+        Args:
+            source_ip: 送信元 IP
+
+        Returns:
+            集計データ（初回・最終観測、総数、攻撃タイプ・Severity 一覧）。
+            該当イベントがなければ None。
+        """
+        # 基本統計（初回・最終・総数）
+        stats_result = await self._session.execute(
+            select(
+                func.min(AttackEventModel.timestamp).label("first_seen"),
+                func.max(AttackEventModel.timestamp).label("last_seen"),
+                func.count(AttackEventModel.id).label("total"),
+            ).where(AttackEventModel.source_ip == source_ip)
+        )
+        stats = stats_result.one_or_none()
+        if stats is None or stats.total == 0:
+            return None
+
+        # 観測された攻撃タイプ・Severity 一覧
+        types_result = await self._session.execute(
+            select(func.distinct(AttackEventModel.attack_type)).where(
+                AttackEventModel.source_ip == source_ip,
+                AttackEventModel.attack_type.is_not(None),
+            )
+        )
+        attack_types = [row[0] for row in types_result.all()]
+
+        sev_result = await self._session.execute(
+            select(AttackEventModel.severity).where(
+                AttackEventModel.source_ip == source_ip,
+                AttackEventModel.severity.is_not(None),
+            )
+        )
+        severities = [row[0] for row in sev_result.all()]
+
+        return IPAggregate(
+            source_ip=source_ip,
+            first_seen=stats.first_seen,
+            last_seen=stats.last_seen,
+            total_events=stats.total,
+            attack_types=attack_types,
+            severities=severities,
+        )
+
+    async def get_ip_aggregates_for_ranking(
+        self,
+        since: datetime,
+        until: datetime,
+        limit: int = 100,
+    ) -> list[IPAggregate]:
+        """Risk ランキング算出用に、IP 別の集計データを取得する.
+
+        イベント数の多い順に候補を絞り込み、各 IP の攻撃タイプ・Severity を返す。
+        Risk Score の算出は呼び出し側（RiskScorer）で行う。
+
+        Args:
+            since: 集計開始日時
+            until: 集計終了日時
+            limit: 対象とする上位 IP 数
+
+        Returns:
+            IP 別集計データのリスト
+        """
+        # まずイベント数上位の IP を絞り込む
+        top_ips_result = await self._session.execute(
+            select(
+                AttackEventModel.source_ip,
+                func.count(AttackEventModel.id).label("total"),
+                func.min(AttackEventModel.timestamp).label("first_seen"),
+                func.max(AttackEventModel.timestamp).label("last_seen"),
+            )
+            .where(
+                AttackEventModel.timestamp >= since,
+                AttackEventModel.timestamp <= until,
+            )
+            .group_by(AttackEventModel.source_ip)
+            .order_by(func.count(AttackEventModel.id).desc())
+            .limit(limit)
+        )
+        top_ips = top_ips_result.all()
+
+        aggregates: list[IPAggregate] = []
+        for ip_row in top_ips:
+            # 各 IP の攻撃タイプ・Severity を取得
+            types_result = await self._session.execute(
+                select(AttackEventModel.attack_type).where(
+                    AttackEventModel.source_ip == ip_row.source_ip,
+                    AttackEventModel.attack_type.is_not(None),
+                )
+            )
+            attack_types = [row[0] for row in types_result.all()]
+
+            sev_result = await self._session.execute(
+                select(AttackEventModel.severity).where(
+                    AttackEventModel.source_ip == ip_row.source_ip,
+                    AttackEventModel.severity.is_not(None),
+                )
+            )
+            severities = [row[0] for row in sev_result.all()]
+
+            aggregates.append(
+                IPAggregate(
+                    source_ip=ip_row.source_ip,
+                    first_seen=ip_row.first_seen,
+                    last_seen=ip_row.last_seen,
+                    total_events=ip_row.total,
+                    attack_types=attack_types,
+                    severities=severities,
+                )
+            )
+
+        return aggregates

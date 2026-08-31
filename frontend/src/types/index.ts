@@ -69,3 +69,39 @@ export interface HealthResponse {
   status: "healthy" | "degraded";
   components: Record<string, "up" | "down">;
 }
+
+// === Phase 2: 分析系の型 ===
+
+/** 攻撃タイプ別集計エントリ */
+export interface AttackTypeCount {
+  attack_type: string;
+  count: number;
+}
+
+/** 攻撃タイプ別集計レスポンス */
+export interface AttackTypesResponse {
+  attack_types: AttackTypeCount[];
+}
+
+/** Severity 別集計レスポンス */
+export interface SeveritySummaryResponse {
+  severity_summary: {
+    HIGH: number;
+    MEDIUM: number;
+    LOW: number;
+  };
+}
+
+/** Risk ランキングエントリ */
+export interface RiskRankingEntry {
+  source_ip: string;
+  risk_score: number;
+  risk_level: "HIGH" | "MEDIUM" | "LOW";
+  total_events: number;
+  attack_types: string[];
+}
+
+/** Risk ランキングレスポンス */
+export interface RiskRankingResponse {
+  ranking: RiskRankingEntry[];
+}

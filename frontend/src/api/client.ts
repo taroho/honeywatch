@@ -6,8 +6,11 @@
  */
 
 import type {
+  AttackTypesResponse,
   DashboardSummary,
   EventsResponse,
+  RiskRankingResponse,
+  SeveritySummaryResponse,
   TimelineResponse,
   TopIPsResponse,
 } from "../types";
@@ -88,5 +91,41 @@ export async function fetchEvents(
     per_page: String(perPage),
   });
   const response = await fetchWithAuth(`${API_BASE}/events?${params}`);
+  return response.json();
+}
+
+// === Phase 2: 分析 API ===
+
+/** 攻撃タイプ別集計を取得する */
+export async function fetchAttackTypes(
+  period: string = "24h"
+): Promise<AttackTypesResponse> {
+  const params = new URLSearchParams({ period });
+  const response = await fetchWithAuth(
+    `${API_BASE}/analysis/attack-types?${params}`
+  );
+  return response.json();
+}
+
+/** Severity 別集計を取得する */
+export async function fetchSeveritySummary(
+  period: string = "24h"
+): Promise<SeveritySummaryResponse> {
+  const params = new URLSearchParams({ period });
+  const response = await fetchWithAuth(
+    `${API_BASE}/analysis/severity-summary?${params}`
+  );
+  return response.json();
+}
+
+/** Risk Score ランキングを取得する */
+export async function fetchRiskRanking(
+  limit: number = 10,
+  period: string = "24h"
+): Promise<RiskRankingResponse> {
+  const params = new URLSearchParams({ limit: String(limit), period });
+  const response = await fetchWithAuth(
+    `${API_BASE}/analysis/risk-ranking?${params}`
+  );
   return response.json();
 }

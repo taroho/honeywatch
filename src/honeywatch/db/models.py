@@ -74,6 +74,23 @@ class AttackEventModel(Base):
         index=True,
     )
 
+    # --- Phase 2 で追加: 分類結果 ---
+    # 攻撃タイプ（brute_force, port_scan, http_scan 等）
+    # 既存レコードとの互換性のため nullable（未分類は NULL）
+    attack_type: Mapped[str | None] = mapped_column(
+        String(30),
+        nullable=True,
+        index=True,
+    )
+
+    # 攻撃の深刻度（HIGH / MEDIUM / LOW）
+    # 既存レコードとの互換性のため nullable（未判定は NULL）
+    severity: Mapped[str | None] = mapped_column(
+        String(10),
+        nullable=True,
+        index=True,
+    )
+
     # プロトコル固有データ（JSON 形式で格納）
     raw_data: Mapped[dict] = mapped_column(  # type: ignore[type-arg]
         JSON,
