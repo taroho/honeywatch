@@ -26,6 +26,78 @@ Cloud (AWS)
 3. IAM ユーザーを作成し、普段はそちらを使用
 4. **予算アラートを設定**（AWS Budgets → $15 → メール通知）
 
+### IAM セットアップ
+
+ルートアカウントは封印し、日常操作は IAM ユーザーで行う。
+
+**ユーザー構成:**
+
+- EC2 を起動・管理するための管理用ユーザーを1つ作成する
+- グループ（例: `honeywatch-admins`）を作り、ポリシーはグループにアタッチする
+  （ユーザーへの直接アタッチより管理しやすい）
+
+**アクセス設定:**
+
+| 項目 | 設定 | 理由 |
+|------|------|------|
+| コンソールアクセス | 有効（パスワード + MFA） | ブラウザから操作 |
+| MFA | 必須 | アカウント保護 |
+| アクセスキー | **作らない** | EC2 操作はコンソールで完結。キーは漏洩リスクになるため必要時のみ発行 |
+
+**権限（最小権限のカスタムポリシー）:**
+
+EC2 の起動・停止・削除、Security Group、キーペアの管理に必要な操作のみを許可する。
+以下のポリシーを作成してグループにアタッチする。
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "EC2ReadOnly",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:Describe*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "EC2ManageInstances",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:RunInstances",
+        "ec2:StartInstances",
+        "ec2:StopInstances",
+        "ec2:TerminateInstances",
+        "ec2:RebootInstances"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "EC2ManageNetworkAndKeys",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:CreateSecurityGroup",
+        "ec2:DeleteSecurityGroup",
+        "ec2:AuthorizeSecurityGroupIngress",
+        "ec2:RevokeSecurityGroupIngress",
+        "ec2:CreateKeyPair",
+        "ec2:DeleteKeyPair",
+        "ec2:CreateTags"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+- `ec2:Describe*` は読み取り専用でリソース指定不可のため `*` とする（AWS 仕様）
+- 変更系は本プロジェクトで使う操作のみに限定
+- さらに絞る場合はリージョン条件（`aws:RequestedRegion`）やタグ条件を追加できる
+
+本プロジェクトは EC2 の操作だけで完結するため、CLI（aws コマンド）を使わないなら
+アクセスキーは不要。CLI が必要になった時点で、必要な権限のキーを発行する。
+
 ### 想定コスト
 
 | 項目 | 月額目安 |
