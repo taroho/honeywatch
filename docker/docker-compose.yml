@@ -9,10 +9,12 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: honeywatch-postgres
+    # 認証情報は .env の DB_* を参照する（api / worker と必ず一致させる）
+    # .env が読めない場合のフォールバックとしてデフォルト値を指定
     environment:
-      POSTGRES_USER: honeywatch
-      POSTGRES_PASSWORD: honeywatch
-      POSTGRES_DB: honeywatch
+      POSTGRES_USER: ${DB_USER:-honeywatch}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-honeywatch}
+      POSTGRES_DB: ${DB_NAME:-honeywatch}
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
@@ -20,7 +22,7 @@ services:
     networks:
       - internal_net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U honeywatch"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-honeywatch}"]
       interval: 5s
       timeout: 5s
       retries: 5

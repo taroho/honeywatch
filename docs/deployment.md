@@ -189,10 +189,24 @@ API_AUTH_PASSWORD=<強力なパスワード>
 DB_PASSWORD=<強力なパスワード>
 ```
 
+**パスワード生成の注意:**
+
+`/` `+` `=` `@` などの記号は DB 接続 URL で誤解釈される場合があるため、
+英数字のみのパスワードを使う（`openssl rand -hex 16` で生成できる）。
+
+```bash
+openssl rand -hex 16   # 英数字32文字のパスワードを生成
+```
+
 ### 6. 起動
 
 ```bash
 cd docker
+
+# compose の変数展開（${DB_PASSWORD} 等）がルートの .env を読めるように
+# docker/ 内に .env のシンボリックリンクを作る（初回のみ）
+ln -sf ../.env .env
+
 docker compose up --build -d
 
 # マイグレーション実行（001: attack_events テーブル、002: attack_type/severity カラム）
