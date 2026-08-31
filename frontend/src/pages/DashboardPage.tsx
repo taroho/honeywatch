@@ -16,16 +16,28 @@ import { useAttackTypes } from "../hooks/useAttackTypes";
 import { useSeveritySummary } from "../hooks/useSeveritySummary";
 import { useRiskRanking } from "../hooks/useRiskRanking";
 
+import { clearCredentials } from "../api/client";
+
 // 集計期間の選択肢
 const PERIOD_OPTIONS = ["1h", "6h", "24h", "7d"] as const;
+
+interface DashboardPageProps {
+  onLogout: () => void;
+}
 
 /**
  * Dashboard ページ
  * 全コンポーネントを組み合わせてレイアウトする
  */
-export function DashboardPage() {
+export function DashboardPage({ onLogout }: DashboardPageProps) {
   // 分析セクションの集計期間（デフォルトは 7d）
   const [period, setPeriod] = useState<string>("7d");
+
+  // ログアウト: 認証情報を破棄してログイン画面へ
+  const handleLogout = () => {
+    clearCredentials();
+    onLogout();
+  };
 
   const { data: summary, loading: summaryLoading } = useDashboardSummary();
   const { data: timeline, loading: timelineLoading } = useTimeline();
@@ -42,8 +54,18 @@ export function DashboardPage() {
   return (
     <div className="min-h-screen bg-hw-bg p-6">
       <div className="max-w-7xl mx-auto">
-        {/* ヘッダー */}
-        <Header />
+        {/* ヘッダー + ログアウト */}
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <Header />
+          </div>
+          <button
+            onClick={handleLogout}
+            className="ml-4 px-3 py-1 rounded text-xs font-medium bg-hw-card text-gray-400 hover:text-gray-200 border border-hw-border"
+          >
+            ログアウト
+          </button>
+        </div>
 
         {/* サマリーカード (4列) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
