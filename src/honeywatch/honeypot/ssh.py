@@ -156,7 +156,10 @@ class SSHHoneypot(BaseHoneypot):
         self._server: asyncssh.SSHAcceptor | None = None
         settings = get_settings()
         self._host = settings.honeypot.ssh_host
+        # コンテナ内でリッスンするポート（非 root のため 2222 等）
         self._port = settings.honeypot.ssh_port
+        # イベントに記録する宛先ポート（外部公開ポート、例: 22）
+        self._reported_port = settings.honeypot.ssh_reported_port
         self._host_key_dir = settings.honeypot.ssh_host_key_dir
         self._timeout = settings.honeypot.ssh_timeout
 
@@ -167,8 +170,8 @@ class SSHHoneypot(BaseHoneypot):
 
     @property
     def port(self) -> int:
-        """リッスンポートを返す."""
-        return self._port
+        """イベントに記録する宛先ポート（外部公開ポート）を返す."""
+        return self._reported_port
 
     async def start(self) -> None:
         """SSH Honeypot サーバーを起動し、停止されるまで待機する."""

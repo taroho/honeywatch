@@ -151,15 +151,17 @@ Session Manager が使えるようになれば、将来的に SSH（22番）を 
 
 | タイプ | ポート | ソース | 用途 |
 |-------|-------|--------|------|
-| Custom TCP | 2222 | 0.0.0.0/0 | SSH Honeypot（攻撃者に公開） |
+| SSH | 22 | 0.0.0.0/0 | SSH Honeypot（攻撃者に公開） |
 | Custom TCP | 8080 | 0.0.0.0/0 | HTTP Honeypot（攻撃者に公開） |
+| Custom TCP | 5555 | 自分の IP/32 | 管理 SSH（OS の sshd を 5555 に移動） |
 | Custom TCP | 8000 | 自分の IP/32 | API（管理用） |
 | Custom TCP | 3000 | 自分の IP/32 | Dashboard（管理用） |
-| SSH | 22 | 自分の IP/32 | 管理 SSH（22番はHoneypotではない） |
 
 **注意:**
-- 管理 SSH は 22 番、Honeypot SSH は 2222 番。混同しないこと
-- 8000 / 3000 / 22 は必ず自分の IP のみに制限する（全開放すると管理系が攻撃される）
+- 22番は SSH Honeypot（攻撃者に公開）。本物の管理 SSH は 5555番に移動する
+- 管理 SSH（5555）と Dashboard/API（8000/3000）は必ず自分の IP のみに制限する
+- OS の sshd を 5555 に移す手順は「初期セットアップ」を参照
+- 管理接続コマンドは `ssh -p 5555 -i <キー>.pem ubuntu@<IP>` になる
 
 ### 3. サーバーへの初期セットアップ
 
@@ -253,6 +255,51 @@ docker compose logs -f
 docker compose exec worker python -m honeywatch.detection.backfill
 ```
 
+### 6.5. GeoIP データベースの配置（Phase 3・任意）
+
+攻撃元の国・都市・座標を解決する GeoIP 機能を使う場合は、MaxMind の
+GeoLite2 データベース（.mmdb）を配置する。**未配置でもシステムは動作する**
+（GeoIP が degraded になり、地理情報は NULL のまま収集を継続する）。
+
+.mmdb はライセンス上リポジトリに含めていないため、各自で取得・配置する。
+
+**取得手順:**
+
+1. [MaxMind](https://www.maxmind.com/en/geolite2/signup) で無償アカウントを作成
+2. GeoLite2 City（`GeoLite2-City.mmdb`）をダウンロード
+3. サーバー上の `data/geoip/` に配置する
+
+```bash
+# ローカルからサーバーへ転送する例（scp）
+scp -i <キーペア>.pem GeoLite2-City.mmdb ubuntu@<EC2のIP>:~/honeywatch/data/geoip/
+```
+
+配置後、Worker を再起動すると自動で読み込まれる。
+
+```bash
+cd docker
+docker compose restart worker
+# ログに geoip.database_loaded が出れば読み込み成功
+docker compose logs worker | grep geoip
+```
+
+**既存イベントへの遡及付与（アップグレード時のみ）:**
+
+Phase 3 導入前に収集済みのイベントに地理情報を付与する場合は backfill を実行する。
+
+```bash
+docker compose exec worker python -m honeywatch.analysis.geoip_backfill
+```
+
+新規デプロイの場合は、以降のイベントに自動で地理情報が付与されるため backfill は不要。
+
+`.env` の設定（デフォルトのままで動作する）:
+
+```bash
+GEOIP_ENABLED=true
+GEOIP_MMDB_PATH=data/geoip/GeoLite2-City.mmdb
+```
+
 ### 7. 動作確認
 
 ```bash
@@ -282,6 +329,10 @@ curl -u <user>:<pass> http://localhost:8000/api/v1/dashboard/summary
 # 攻撃分類の確認（Phase 2）
 curl -u <user>:<pass> "http://localhost:8000/api/v1/analysis/attack-types?period=24h"
 curl -u <user>:<pass> "http://localhost:8000/api/v1/analysis/risk-ranking?period=24h"
+
+# 地理分析の確認（Phase 3・GeoIP 配置時）
+curl -u <user>:<pass> "http://localhost:8000/api/v1/analysis/countries?period=24h"
+curl -u <user>:<pass> "http://localhost:8000/api/v1/analysis/geo-map?period=24h"
 ```
 
 Dashboard 下部の「Detection Analysis」セクションで、攻撃タイプ別集計・Severity 内訳・

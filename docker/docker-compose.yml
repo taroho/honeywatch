@@ -114,8 +114,10 @@ services:
     environment:
       REDIS_HOST: redis
     ports:
-      # SSH Honeypot — 外部公開
-      - "0.0.0.0:2222:2222"
+      # SSH Honeypot — 外部公開（22番）
+      # 管理 SSH は 5555番に移動したため、22番を Honeypot が使う。
+      # コンテナ内は非 root で 2222 をリッスンし、ホスト 22 → コンテナ 2222 に転送する。
+      - "0.0.0.0:22:2222"
       # HTTP Honeypot — 外部公開
       - "0.0.0.0:8080:8080"
     volumes:

@@ -82,7 +82,10 @@ class HTTPHoneypot(BaseHoneypot):
         super().__init__(event_queue)
         settings = get_settings()
         self._host = settings.honeypot.http_host
+        # コンテナ内でリッスンするポート
         self._port = settings.honeypot.http_port
+        # イベントに記録する宛先ポート（外部公開ポート）
+        self._reported_port = settings.honeypot.http_reported_port
         self._app: web.Application | None = None
         self._runner: web.AppRunner | None = None
         self._site: web.TCPSite | None = None
@@ -181,7 +184,7 @@ class HTTPHoneypot(BaseHoneypot):
         event = AttackEvent(
             source_ip=source_ip,
             source_port=source_port,
-            destination_port=self._port,
+            destination_port=self._reported_port,
             protocol="http",
             event_type="http_request",
             raw_data=http_data.model_dump(),

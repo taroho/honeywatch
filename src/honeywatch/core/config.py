@@ -46,7 +46,11 @@ class HoneypotSettings(BaseSettings):
 
     # SSH Honeypot
     ssh_host: str = "0.0.0.0"  # noqa: S104 — Honeypot は意図的に外部公開する
+    # コンテナ内でリッスンするポート（非 root のため 1024 以上にする）
     ssh_port: int = 2222
+    # 外部に公開されているポート（イベントの destination_port に記録する値）
+    # None の場合は ssh_port を使う。ホスト 22 → コンテナ 2222 の場合は 22 を指定する。
+    ssh_public_port: int | None = None
     ssh_max_auth_attempts: int = 10
     ssh_timeout: int = 30
     ssh_host_key_dir: str = "data/ssh_host_keys"
@@ -54,6 +58,18 @@ class HoneypotSettings(BaseSettings):
     # HTTP Honeypot
     http_host: str = "0.0.0.0"  # noqa: S104 — Honeypot は意図的に外部公開する
     http_port: int = 8080
+    # 外部公開ポート（記録用）。None なら http_port を使う。
+    http_public_port: int | None = None
+
+    @property
+    def ssh_reported_port(self) -> int:
+        """イベントに記録する SSH の宛先ポート（公開ポート優先）."""
+        return self.ssh_public_port if self.ssh_public_port is not None else self.ssh_port
+
+    @property
+    def http_reported_port(self) -> int:
+        """イベントに記録する HTTP の宛先ポート（公開ポート優先）."""
+        return self.http_public_port if self.http_public_port is not None else self.http_port
 
 
 class APISettings(BaseSettings):
