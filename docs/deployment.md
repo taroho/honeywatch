@@ -153,15 +153,16 @@ Session Manager が使えるようになれば、将来的に SSH（22番）を 
 |-------|-------|--------|------|
 | SSH | 22 | 0.0.0.0/0 | SSH Honeypot（攻撃者に公開） |
 | Custom TCP | 8080 | 0.0.0.0/0 | HTTP Honeypot（攻撃者に公開） |
-| Custom TCP | 5555 | 自分の IP/32 | 管理 SSH（OS の sshd を 5555 に移動） |
+| Custom TCP | 2200 | 自分の IP/32 | 管理 SSH（OS の sshd を 2200 に移動） |
 | Custom TCP | 8000 | 自分の IP/32 | API（管理用） |
 | Custom TCP | 3000 | 自分の IP/32 | Dashboard（管理用） |
 
 **注意:**
-- 22番は SSH Honeypot（攻撃者に公開）。本物の管理 SSH は 5555番に移動する
-- 管理 SSH（5555）と Dashboard/API（8000/3000）は必ず自分の IP のみに制限する
-- OS の sshd を 5555 に移す手順は「初期セットアップ」を参照
-- 管理接続コマンドは `ssh -p 5555 -i <キー>.pem ubuntu@<IP>` になる
+- 22番は SSH Honeypot（攻撃者に公開）。本物の管理 SSH は 2200番に移動する
+- 管理 SSH（2200）と Dashboard/API（8000/3000）は必ず自分の IP のみに制限する
+- OS の sshd を 2200 に移す手順は「初期セットアップ」を参照
+- 管理接続コマンドは `ssh -p 2200 -i <キー>.pem ubuntu@<IP>` になる
+- ※ 5555 等の非標準ポートは一部ネットワークで outbound が塞がれることがある。2200 は比較的通りやすい
 
 ### 3. サーバーへの初期セットアップ
 

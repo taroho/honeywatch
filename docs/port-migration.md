@@ -3,7 +3,10 @@
 ## 目的
 
 SSH Honeypot への攻撃を増やすため、標準の 22番を Honeypot に割り当てる。
-管理用 SSH（OS の sshd）は 5555番に移動する。SSM は保険として残す。
+管理用 SSH（OS の sshd）は 2200番に移動する。SSM は保険として残す。
+
+※ 当初 5555 を検討したが、一部ネットワークでは非標準の高番ポートの outbound が
+塞がれることがあるため、比較的通りやすい 2200 を採用した。
 
 ## 変更前後の構成
 
@@ -11,7 +14,7 @@ SSH Honeypot への攻撃を増やすため、標準の 22番を Honeypot に割
 |-------|--------|--------|
 | 22 | 管理 SSH（自IP） | SSH Honeypot（全世界公開） |
 | 2222 | SSH Honeypot（全世界公開） | 廃止（コンテナ内リッスンのみ） |
-| 5555 | なし | 管理 SSH（自IP） |
+| 2200 | なし | 管理 SSH（自IP） |
 | 8080 | HTTP Honeypot | 変更なし |
 | 8000 / 3000 | API / Dashboard（自IP） | 変更なし |
 
@@ -37,7 +40,7 @@ SSH Honeypot への攻撃を増やすため、標準の 22番を Honeypot に割
 ```bash
 cd ~/taroho/honeywatch
 git add src/ .env.example docker/ docs/
-git commit -m "feat: 管理SSHを5555へ移動し22番をHoneypotに割り当て"
+git commit -m "feat: 管理SSHを2200へ移動し22番をHoneypotに割り当て"
 git push
 ```
 
@@ -47,9 +50,33 @@ git push
 ssh -i HoneyWatchKey.pem ubuntu@<EC2のIP>
 ```
 
-### ステップ 3: 管理 SSH を 5555 でも待ち受けるようにする
+### ステップ 3: 管理 SSH を 2200 でも待ち受けるようにする
 
-いきなり 22 を消さず、22 と 5555 の両方で入れる状態を作る。
+いきなり 22 を消さず、22 と 2200 の両方で入れる状態を作る。
+
+**注意（Ubuntu の socket activation）:**
+Ubuntu 22.04 以降は `ssh.socket` が SSH の待ち受けを管理しており、
+`sshd_config` の `Port` だけでは反映されないことがある。その場合は
+socket 側にポートを追加する:
+
+```bash
+sudo systemctl edit ssh.socket
+```
+
+```
+[Socket]
+ListenStream=
+ListenStream=0.0.0.0:22
+ListenStream=0.0.0.0:2200
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart ssh.socket
+sudo ss -tlnp | grep -E ':22|:2200'
+```
+
+`sshd_config` で直接指定する場合は以下（socket 無効時）。
 
 ```bash
 sudo vim /etc/ssh/sshd_config
@@ -59,7 +86,7 @@ sudo vim /etc/ssh/sshd_config
 
 ```
 Port 22
-Port 5555
+Port 2200
 ```
 
 保存して再起動:
@@ -68,38 +95,50 @@ Port 5555
 sudo systemctl restart ssh
 ```
 
-### ステップ 4: Security Group に 5555 を追加
+### ステップ 4: Security Group に 2200 を追加
 
 AWS コンソール → Security Group → インバウンドルール:
 
 | タイプ | ポート | ソース |
 |-------|-------|--------|
-| Custom TCP | 5555 | 自分の IP/32 |
+| Custom TCP | 2200 | 自分の IP/32 |
 
-### ステップ 5: 5555 で入れることを確認【最重要】
+### ステップ 5: 2200 で入れることを確認【最重要】
 
 **別のターミナル**を開いて（今の接続は保持したまま）:
 
 ```bash
-ssh -p 5555 -i HoneyWatchKey.pem ubuntu@<EC2のIP>
+ssh -p 2200 -i HoneyWatchKey.pem ubuntu@<EC2のIP>
 ```
+
+到達できないときは、まず `nc -zv <EC2のIP> 2200` で届くか確認する
+（timed out ならネットワーク側で塞がれている。IP が変わっていないかも確認）。
 
 **ここで入れたら成功。入れない場合は先に進まず原因を解決すること。**
 （入れないまま次に進むと、22番を消したとき締め出される）
 
 ### ステップ 6: 管理 SSH から 22番を外す
 
-5555 で入れることを確認できたら、sshd から 22 を削除する。
+2200 で入れることを確認できたら、sshd から 22 を削除する。
 
 ```bash
 sudo vim /etc/ssh/sshd_config
 ```
 
-`Port 22` を削除（または `#` でコメントアウト）し、5555 のみにする:
+`Port 22` を削除（または `#` でコメントアウト）し、2200 のみにする:
 
 ```
-Port 5555
+Port 2200
 ```
+
+socket activation を使っている場合は socket 側を 2200 のみにする:
+
+```
+[Socket]
+ListenStream=
+ListenStream=0.0.0.0:2200
+```
+（`sudo systemctl daemon-reload && sudo systemctl restart ssh.socket`）
 
 再起動:
 
@@ -107,7 +146,7 @@ Port 5555
 sudo systemctl restart ssh
 ```
 
-これ以降、OS の管理 SSH は 5555 のみ。22番は空く。
+これ以降、OS の管理 SSH は 2200 のみ。22番は空く。
 
 ### ステップ 7: コードを反映
 
@@ -157,7 +196,7 @@ ssh -p 22 test@<EC2のIP>
 記録を確認（destination_port が 22 になっているか）:
 
 ```bash
-# 管理接続（5555）で EC2 に入り
+# 管理接続（2200）で EC2 に入り
 curl -u admin:<APIパスワード> "http://localhost:8000/api/v1/events?per_page=5"
 ```
 
@@ -166,11 +205,11 @@ curl -u admin:<APIパスワード> "http://localhost:8000/api/v1/events?per_page
 ## 変更後の管理接続コマンド
 
 ```bash
-# 管理 SSH（5555）
-ssh -p 5555 -i HoneyWatchKey.pem ubuntu@<EC2のIP>
+# 管理 SSH（2200）
+ssh -p 2200 -i HoneyWatchKey.pem ubuntu@<EC2のIP>
 
-# Dashboard 閲覧のトンネル（5555 経由）
-ssh -p 5555 -i HoneyWatchKey.pem \
+# Dashboard 閲覧のトンネル（2200 経由）
+ssh -p 2200 -i HoneyWatchKey.pem \
   -L 3000:localhost:3000 -L 8000:localhost:8000 \
   ubuntu@<EC2のIP>
 ```
@@ -191,7 +230,8 @@ ssh -p 5555 -i HoneyWatchKey.pem \
 
 | 症状 | 対処 |
 |------|------|
-| 5555 で入れない | Security Group の 5555 ルール、sshd_config の Port 5555、`systemctl status ssh` を確認 |
-| 全 SSH で入れない | SSM Session Manager から接続して sshd_config を修正 |
+| 2200 で入れない | Security Group の 2200 ルール、socket/sshd の 2200 待ち受け（`ss -tlnp`）、`systemctl status ssh.socket` を確認 |
+| 全 SSH が timed out | EC2 の IP が変わっていないか確認（停止→起動で変わる）。`ssh` 先のホスト名/IP が最新か確認 |
+| 全 SSH で入れない | SSM Session Manager から接続して設定を修正 |
 | 22番の Honeypot に繋がらない | SG の 22番が 0.0.0.0/0 か、`docker compose ps honeypot` が Up か確認 |
 | destination_port が 2222 のまま | EC2 の `.env` に `HONEYPOT_SSH_PUBLIC_PORT=22` があるか確認し、honeypot を再起動 |
