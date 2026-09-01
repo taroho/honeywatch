@@ -166,13 +166,27 @@ class EventQueue:
                 assert self._redis is not None  # noqa: S101
 
                 # まず未 ACK のペンディングメッセージを処理
-                results = await self._redis.xreadgroup(
-                    groupname=self._consumer_group,
-                    consumername=consumer_name,
-                    streams={self._stream_key: ">"},
-                    count=batch_size,
-                    block=block_ms,
-                )
+                try:
+                    results = await self._redis.xreadgroup(
+                        groupname=self._consumer_group,
+                        consumername=consumer_name,
+                        streams={self._stream_key: ">"},
+                        count=batch_size,
+                        block=block_ms,
+                    )
+                except aioredis.ResponseError as e:
+                    # NOGROUP: Redis 再起動やデータ入れ替えで Consumer Group が
+                    # 消失した場合に発生する。グループを再作成してループを継続し、
+                    # Worker が静かに停止する（イベントが DB に保存されない）のを防ぐ。
+                    if "NOGROUP" in str(e):
+                        logger.warning(
+                            "event_queue.consumer_group_missing",
+                            group=self._consumer_group,
+                            error=str(e),
+                        )
+                        await self._ensure_consumer_group()
+                        continue
+                    raise
 
                 if not results:
                     continue

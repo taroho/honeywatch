@@ -242,10 +242,31 @@ async def run_worker(consumer_name: str = "worker-1") -> None:
     # ワーカー起動（バックグラウンドタスク）
     worker_task = asyncio.create_task(worker.start())
 
-    # シャットダウンシグナルを待つ
-    await shutdown_event.wait()
+    # シャットダウンシグナル、または Worker タスクの終了（＝異常終了）を待つ。
+    # 以前は shutdown_event のみを待っていたため、消費ループが例外で終了しても
+    # 誰も worker_task を await せず、例外が握り潰されてプロセスが無言のまま
+    # 停止する不具合があった。ここで両方を待つことで異常終了を検知する。
+    shutdown_wait = asyncio.create_task(shutdown_event.wait())
+    done, _pending = await asyncio.wait(
+        {worker_task, shutdown_wait},
+        return_when=asyncio.FIRST_COMPLETED,
+    )
 
-    # グレースフルシャットダウン
+    # Worker タスクが先に終了した場合は異常終了。例外を取り出してログに残し、
+    # 例外を送出することで（restart: unless-stopped 下で）プロセスを再起動させる。
+    if worker_task in done:
+        shutdown_wait.cancel()
+        try:
+            await worker_task
+        except Exception:
+            logger.exception("worker.crashed", consumer_name=consumer_name)
+            await worker.stop()
+            raise
+        # 例外なく終了した場合もシャットダウン扱いにする
+        await worker.stop()
+        return
+
+    # シャットダウンシグナルを受信した場合はグレースフルシャットダウン
     await worker.stop()
     worker_task.cancel()
 
