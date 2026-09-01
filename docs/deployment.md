@@ -98,6 +98,32 @@ EC2 の起動・停止・削除、Security Group、キーペアの管理に必�
 本プロジェクトは EC2 の操作だけで完結するため、CLI（aws コマンド）を使わないなら
 アクセスキーは不要。CLI が必要になった時点で、必要な権限のキーを発行する。
 
+### 管理接続（SSH + Session Manager の併用）
+
+EC2 への管理接続は SSH と AWS Systems Manager (SSM) Session Manager を併用する。
+2つは独立しているため両方有効にでき、片方が使えないときの保険になる。
+
+| 手段 | 用途 |
+|------|------|
+| SSH（22番） | ファイル転送（scp）、SSH トンネル（Dashboard 閲覧の `-L`）、通常操作 |
+| Session Manager | 22番を絞っていても接続可能。IP 変動時や SSH 不調時の予備経路。ブラウザから接続でき、監査ログも残る |
+
+**Session Manager の有効化:**
+
+これは IAM ユーザーではなく、**EC2 インスタンスに付けるロール**に設定する。
+
+1. IAM → ロール → EC2 用のロールを作成
+2. マネージドポリシー `AmazonSSMManagedInstanceCore` をアタッチ
+3. そのロールを EC2 インスタンスにアタッチ
+   （EC2 → インスタンス → アクション → セキュリティ → IAM ロールを変更）
+
+Ubuntu 22.04 の AWS 公式 AMI には SSM エージェントがプリインストール済みのため、
+追加インストールは不要。設定後、EC2 コンソールの「接続」→「Session Manager」で接続できる。
+
+Session Manager が使えるようになれば、将来的に SSH（22番）を Security Group から
+閉じて攻撃面をさらに減らすこともできる（ただし SSH トンネルでの Dashboard 閲覧は
+使えなくなるため、運用方法に応じて判断する）。
+
 ### 想定コスト
 
 | 項目 | 月額目安 |
@@ -280,6 +306,29 @@ docker compose up -d
 ```bash
 # PostgreSQL のダンプを取得
 docker compose exec postgres pg_dump -U honeywatch honeywatch > backup_$(date +%Y%m%d).sql
+```
+
+### ディスク管理（長期放置時）
+
+Docker のコンテナログは docker-compose.yml でローテーション設定済み
+（各コンテナ最大 10MB × 3世代 = 30MB）。長期放置してもログでディスクが
+溢れることはない。攻撃データ（DB）は数年分の余裕があるため当面問題ない。
+
+ディスク使用量を確認したい場合:
+
+```bash
+# ディスク全体の空き
+df -h /
+
+# Docker が使っている容量の内訳
+docker system df
+```
+
+ディスクが逼迫してきたら、未使用イメージ・ビルドキャッシュを掃除する:
+
+```bash
+docker system prune -af
+docker builder prune -af
 ```
 
 ## セキュリティチェックリスト

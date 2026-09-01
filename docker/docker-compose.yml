@@ -3,6 +3,15 @@ name: honeywatch
 # HoneyWatch Docker Compose 構成
 # ネットワーク分離: honeypot_net（外部公開用）/ internal_net（内部通信用）
 
+# ログローテーション共通設定（YAML アンカー）
+# 各コンテナのログは最大 10MB × 3世代 = 30MB に制限し、
+# 古いログは自動削除される。長期放置でもディスクを圧迫しない。
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   # === インフラ ===
 
@@ -27,6 +36,7 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    logging: *default-logging
 
   redis:
     image: redis:7-alpine
@@ -43,6 +53,7 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    logging: *default-logging
 
   # === バックエンド ===
 
@@ -65,6 +76,7 @@ services:
     networks:
       - internal_net
     restart: unless-stopped
+    logging: *default-logging
 
   api:
     build:
@@ -87,6 +99,7 @@ services:
     networks:
       - internal_net
     restart: unless-stopped
+    logging: *default-logging
 
   # === Honeypot ===
 
@@ -114,6 +127,7 @@ services:
       - honeypot_net
       - internal_net
     restart: unless-stopped
+    logging: *default-logging
 
   # === フロントエンド ===
 
@@ -127,6 +141,7 @@ services:
     networks:
       - internal_net
     restart: unless-stopped
+    logging: *default-logging
 
 networks:
   # Honeypot 用ネットワーク（外部からのトラフィックを受ける）
