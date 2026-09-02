@@ -8,6 +8,7 @@
 import type {
   AttackTypesResponse,
   DashboardSummary,
+  EventListFilters,
   EventsResponse,
   RiskRankingResponse,
   SeveritySummaryResponse,
@@ -152,15 +153,27 @@ export async function fetchTopIPs(
   return response.json();
 }
 
-/** イベント一覧を取得する */
+/**
+ * イベント一覧を取得する.
+ *
+ * 第3引数 filters は任意（既定 `{}`）。値が指定された条件のみクエリに付与する。
+ * これにより既存の 2 引数呼び出し（useRecentEvents の fetchEvents(1, perPage)）は
+ * 挙動が変わらず、後方互換を保つ。
+ */
 export async function fetchEvents(
   page: number = 1,
-  perPage: number = 20
+  perPage: number = 20,
+  filters: EventListFilters = {}
 ): Promise<EventsResponse> {
   const params = new URLSearchParams({
     page: String(page),
     per_page: String(perPage),
   });
+  // フィルタは値がある場合のみ付与する（空文字・undefined は無視）
+  if (filters.protocol) params.set("protocol", filters.protocol);
+  if (filters.source_ip) params.set("source_ip", filters.source_ip);
+  if (filters.since) params.set("since", filters.since);
+  if (filters.until) params.set("until", filters.until);
   const response = await fetchWithAuth(`${API_BASE}/events?${params}`);
   return response.json();
 }

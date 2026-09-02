@@ -105,3 +105,29 @@ export interface RiskRankingEntry {
 export interface RiskRankingResponse {
   ranking: RiskRankingEntry[];
 }
+
+// === Phase 3: イベント一覧のフィルタ型 ===
+
+/**
+ * イベント一覧の絞り込み条件。
+ * すべて任意で、指定されたフィールドのみ API のクエリに付与する。
+ * 既存の EventsResponse / AttackEvent / Pagination には影響しない（後方互換）。
+ */
+export interface EventListFilters {
+  /** プロトコル種別（ssh / http）。未指定なら全プロトコル対象 */
+  protocol?: "ssh" | "http";
+  /** 送信元 IP。未指定なら全 IP 対象 */
+  source_ip?: string;
+  /** 期間の開始日時（ISO8601 文字列） */
+  since?: string;
+  /** 期間の終了日時（ISO8601 文字列） */
+  until?: string;
+}
+
+// === Phase 3: ビュー切替 ===
+
+/**
+ * App が出し分けるビューの種別。
+ * ルーティングライブラリを使わず、App.tsx の state でこの値を切り替える。
+ */
+export type View = "dashboard" | "events";

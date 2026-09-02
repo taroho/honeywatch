@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Header } from "../components/Header";
 import { SummaryCard } from "../components/SummaryCard";
 import { AttackTimeline } from "../components/AttackTimeline";
@@ -17,19 +17,24 @@ import { useSeveritySummary } from "../hooks/useSeveritySummary";
 import { useRiskRanking } from "../hooks/useRiskRanking";
 
 import { clearCredentials } from "../api/client";
+import type { View } from "../types";
 
 // 集計期間の選択肢
 const PERIOD_OPTIONS = ["1h", "6h", "24h", "7d"] as const;
 
 interface DashboardPageProps {
   onLogout: () => void;
+  /** ビュー切替時に呼ばれるコールバック */
+  onNavigate: (view: View) => void;
+  /** 現在表示中のビュー（ヘッダーのアクティブ表示に利用） */
+  currentView: View;
 }
 
 /**
  * Dashboard ページ
  * 全コンポーネントを組み合わせてレイアウトする
  */
-export function DashboardPage({ onLogout }: DashboardPageProps) {
+export function DashboardPage({ onLogout, onNavigate, currentView }: DashboardPageProps) {
   // 分析セクションの集計期間（デフォルトは 7d）
   const [period, setPeriod] = useState<string>("7d");
 
@@ -57,7 +62,7 @@ export function DashboardPage({ onLogout }: DashboardPageProps) {
         {/* ヘッダー + ログアウト */}
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <Header />
+            <Header currentView={currentView} onNavigate={onNavigate} />
           </div>
           <button
             onClick={handleLogout}

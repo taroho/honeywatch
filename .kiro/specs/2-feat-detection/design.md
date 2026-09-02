@@ -1,4 +1,4 @@
-# Design
+﻿# Design
 
 ## Overview
 
@@ -232,8 +232,32 @@ Severity 別のイベント件数を返す。
 
 ## Correctness Properties
 
-- 分類処理が失敗してもイベントは必ず保存される（suspicious_request にフォールバック）
-- Detection Rule 変更後、再起動のみで新基準が反映される（コード変更不要）
-- Phase 1 の既存イベントデータは破壊されない（追加カラムは nullable）
-- Risk Score は必ず 0〜100 の範囲に収まる
-- 同一イベントを再分類しても結果は決定的（同じ入力 → 同じ分類）
+### Property 1: 分類失敗時のイベント保持
+
+分類処理が失敗してもイベントは必ず保存される（suspicious_request にフォールバック）。
+
+**Validates: Requirements 5.1**
+
+### Property 2: ルール変更の反映
+
+Detection Rule 変更後、再起動のみで新基準が反映される（コード変更不要）。
+
+**Validates: Requirements 2.2, 8.1**
+
+### Property 3: 既存データの非破壊
+
+Phase 1 の既存イベントデータは破壊されない（追加カラムは nullable）。
+
+**Validates: Requirements 9.1**
+
+### Property 4: Risk Score の範囲
+
+Risk Score は必ず 0〜100 の範囲に収まる。
+
+**Validates: Requirements 3.2**
+
+### Property 5: 分類の決定性
+
+同一イベントを再分類しても結果は決定的（同じ入力 → 同じ分類）。
+
+**Validates: Requirements 1.2, 5.2**

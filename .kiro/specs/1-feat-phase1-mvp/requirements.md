@@ -1,4 +1,4 @@
-# Requirements Document
+﻿# Requirements Document
 
 ## Introduction
 
@@ -16,85 +16,99 @@ Phase 1 MVP として、HoneyWatch の基盤を構築する。SSH / HTTP の Hon
 
 ## Requirements
 
-### FR-1: SSH Honeypot
+### Requirement 1: SSH Honeypot
 
-WHEN 外部から SSH 接続が試みられる
-THE SYSTEM SHALL 接続情報（送信元 IP、ポート、ユーザー名、パスワードハッシュ、タイムスタンプ、接続時間）をイベントとして記録する
+**User Story:** セキュリティ運用者として、SSH への攻撃を観測したい。そうすれば、SSH に対する不正アクセス試行を記録・分析できる。
 
-WHEN SSH 認証が試みられる
-THE SYSTEM SHALL 常に認証を失敗させる（ログインを許可しない）
+#### Acceptance Criteria
 
-### FR-2: HTTP Honeypot
+1. WHEN 外部から SSH 接続が試みられる THEN THE SYSTEM SHALL 接続情報（送信元 IP、ポート、ユーザー名、パスワードハッシュ、タイムスタンプ、接続時間）をイベントとして記録する
+2. WHEN SSH 認証が試みられる THEN THE SYSTEM SHALL 常に認証を失敗させる（ログインを許可しない）
 
-WHEN 外部から HTTP リクエストが送信される
-THE SYSTEM SHALL リクエスト情報（送信元 IP、メソッド、パス、ヘッダー、User-Agent、タイムスタンプ）をイベントとして記録する
+### Requirement 2: HTTP Honeypot
 
-WHEN HTTP リクエストを受信する
-THE SYSTEM SHALL 一般的な Web サーバーを模したレスポンスを返す
+**User Story:** セキュリティ運用者として、HTTP への攻撃を観測したい。そうすれば、Web に対するスキャンや攻撃試行を記録・分析できる。
 
-### FR-3: Event Collection
+#### Acceptance Criteria
 
-WHEN Honeypot がイベントを検知する
-THE SYSTEM SHALL イベントを共通フォーマットに正規化してキューに投入する
+1. WHEN 外部から HTTP リクエストが送信される THEN THE SYSTEM SHALL リクエスト情報（送信元 IP、メソッド、パス、ヘッダー、User-Agent、タイムスタンプ）をイベントとして記録する
+2. WHEN HTTP リクエストを受信する THEN THE SYSTEM SHALL 一般的な Web サーバーを模したレスポンスを返す
 
-WHEN キューにイベントが存在する
-THE SYSTEM SHALL キューからイベントを取得してデータベースに永続化する
+### Requirement 3: Event Collection
 
-### FR-4: Event Storage
+**User Story:** システムとして、観測したイベントを確実にキュー経由で収集したい。そうすれば、Honeypot と永続化を疎結合に保てる。
 
-WHEN 正規化されたイベントがワーカーに処理される
-THE SYSTEM SHALL PostgreSQL に攻撃イベントレコードとして保存する
+#### Acceptance Criteria
 
-WHEN イベントが保存される
-THE SYSTEM SHALL 最低限以下のフィールドを含む: timestamp, source_ip, destination_port, protocol, event_type, raw_data
+1. WHEN Honeypot がイベントを検知する THEN THE SYSTEM SHALL イベントを共通フォーマットに正規化してキューに投入する
+2. WHEN キューにイベントが存在する THEN THE SYSTEM SHALL キューからイベントを取得してデータベースに永続化する
 
-### FR-5: REST API
+### Requirement 4: Event Storage
 
-WHEN Dashboard がデータを要求する
-THE SYSTEM SHALL 以下のデータを API エンドポイント経由で提供する: 攻撃イベント一覧（ページネーション付き）、統計サマリー（本日の攻撃数、ユニーク IP 数、プロトコル別件数）、時間帯別イベント数（タイムライン用）、送信元 IP ランキング
+**User Story:** アナリストとして、観測イベントを永続化したい。そうすれば、後から検索・分析できる。
 
-### FR-6: Basic Dashboard
+#### Acceptance Criteria
 
-WHEN ユーザーが Dashboard にアクセスする
-THE SYSTEM SHALL 以下の情報を表示する: 攻撃数サマリーカード（本日の攻撃数、ユニーク IP 数、SSH 試行数、HTTP 攻撃数）、攻撃タイムライン（時間帯別の折れ線グラフ）、Top 送信元 IP リスト、最新イベントテーブル
+1. WHEN 正規化されたイベントがワーカーに処理される THEN THE SYSTEM SHALL PostgreSQL に攻撃イベントレコードとして保存する
+2. WHEN イベントが保存される THEN THE SYSTEM SHALL 最低限以下のフィールドを含む: timestamp, source_ip, destination_port, protocol, event_type, raw_data
 
-### NFR-1: セキュリティ
+### Requirement 5: REST API
 
-WHEN Honeypot プロセスが実行される
-THE SYSTEM SHALL 最小権限で動作し、管理用 API と異なるネットワークインターフェースで待ち受ける
+**User Story:** Dashboard 開発者として、可視化に必要なデータを API から取得したい。そうすれば、フロントエンドを疎結合に構築できる。
 
-WHEN パスワードが記録される
-THE SYSTEM SHALL 平文で保存する（攻撃パターン分析・辞書攻撃傾向の可視化に使用。DB アクセス制御で保護）
+#### Acceptance Criteria
 
-WHEN Dashboard API にアクセスされる
-THE SYSTEM SHALL 認証で保護する（Phase 1 では Basic Auth）
+1. WHEN Dashboard がデータを要求する THEN THE SYSTEM SHALL 攻撃イベント一覧（ページネーション付き）を API エンドポイント経由で提供する
+2. WHEN Dashboard がデータを要求する THEN THE SYSTEM SHALL 統計サマリー（本日の攻撃数、ユニーク IP 数、プロトコル別件数）を API エンドポイント経由で提供する
+3. WHEN Dashboard がデータを要求する THEN THE SYSTEM SHALL 時間帯別イベント数（タイムライン用）を API エンドポイント経由で提供する
+4. WHEN Dashboard がデータを要求する THEN THE SYSTEM SHALL 送信元 IP ランキングを API エンドポイント経由で提供する
 
-### NFR-2: パフォーマンス
+### Requirement 6: Basic Dashboard
 
-WHEN 同時に多数の SSH 接続がある
-THE SYSTEM SHALL 100 以上の同時接続を処理できる
+**User Story:** ユーザーとして、攻撃状況を Dashboard で把握したい。そうすれば、観測状況を一目で確認できる。
 
-WHEN イベントが発生する
-THE SYSTEM SHALL 500ms 以内にデータベースに保存する
+#### Acceptance Criteria
 
-WHEN Dashboard API にリクエストがある
-THE SYSTEM SHALL 1 秒以内にレスポンスを返す
+1. WHEN ユーザーが Dashboard にアクセスする THEN THE SYSTEM SHALL 攻撃数サマリーカード（本日の攻撃数、ユニーク IP 数、SSH 試行数、HTTP 攻撃数）を表示する
+2. WHEN ユーザーが Dashboard にアクセスする THEN THE SYSTEM SHALL 攻撃タイムライン（時間帯別の折れ線グラフ）を表示する
+3. WHEN ユーザーが Dashboard にアクセスする THEN THE SYSTEM SHALL Top 送信元 IP リストを表示する
+4. WHEN ユーザーが Dashboard にアクセスする THEN THE SYSTEM SHALL 最新イベントテーブルを表示する
 
-### NFR-3: 可用性
+### Requirement 7: セキュリティ
 
-WHEN Honeypot プロセスがクラッシュする
-THE SYSTEM SHALL 自動再起動する
+**User Story:** 運用者として、Honeypot と管理系を安全に運用したい。そうすれば、攻撃観測基盤自体のリスクを抑えられる。
 
-WHEN DB 接続エラーが発生する
-THE SYSTEM SHALL イベントをキューに保持し、復旧後に再処理する
+#### Acceptance Criteria
 
-### NFR-4: 運用性
+1. WHEN Honeypot プロセスが実行される THEN THE SYSTEM SHALL 最小権限で動作し、管理用 API と異なるネットワークインターフェースで待ち受ける
+2. WHEN パスワードが記録される THEN THE SYSTEM SHALL 平文で保存する（攻撃パターン分析・辞書攻撃傾向の可視化に使用。DB アクセス制御で保護）
+3. WHEN Dashboard API にアクセスされる THEN THE SYSTEM SHALL 認証で保護する（Phase 1 では Basic Auth）
 
-WHEN システムをデプロイする
-THE SYSTEM SHALL Docker Compose で全コンポーネントを一括起動できる
+### Requirement 8: パフォーマンス
 
-WHEN 環境を切り替える
-THE SYSTEM SHALL 環境変数で設定を変更できる
+**User Story:** 運用者として、負荷時でも安定して観測・応答したい。そうすれば、大量の攻撃時にも取りこぼしを防げる。
 
-WHEN ログを出力する
-THE SYSTEM SHALL 構造化ログ（JSON 形式）で出力する
+#### Acceptance Criteria
+
+1. WHEN 同時に多数の SSH 接続がある THEN THE SYSTEM SHALL 100 以上の同時接続を処理できる
+2. WHEN イベントが発生する THEN THE SYSTEM SHALL 500ms 以内にデータベースに保存する
+3. WHEN Dashboard API にリクエストがある THEN THE SYSTEM SHALL 1 秒以内にレスポンスを返す
+
+### Requirement 9: 可用性
+
+**User Story:** 運用者として、障害時にもイベントを失いたくない。そうすれば、観測データの欠損を防げる。
+
+#### Acceptance Criteria
+
+1. WHEN Honeypot プロセスがクラッシュする THEN THE SYSTEM SHALL 自動再起動する
+2. WHEN DB 接続エラーが発生する THEN THE SYSTEM SHALL イベントをキューに保持し、復旧後に再処理する
+
+### Requirement 10: 運用性
+
+**User Story:** 運用者として、デプロイと設定変更を容易にしたい。そうすれば、環境構築や切り替えを素早く行える。
+
+#### Acceptance Criteria
+
+1. WHEN システムをデプロイする THEN THE SYSTEM SHALL Docker Compose で全コンポーネントを一括起動できる
+2. WHEN 環境を切り替える THEN THE SYSTEM SHALL 環境変数で設定を変更できる
+3. WHEN ログを出力する THEN THE SYSTEM SHALL 構造化ログ（JSON 形式）で出力する

@@ -1,4 +1,4 @@
-# Design
+﻿# Design
 
 ## Overview
 
@@ -357,9 +357,38 @@ class BaseHoneypot(ABC):
 
 ## Correctness Properties
 
-- Honeypot は実際のシステムへの認証を許可しない（SSH は常に拒否、HTTP は模擬レスポンスのみ）
-- パスワードは平文で保存する（攻撃パターン分析・辞書攻撃傾向の可視化に使用。リスクを認識した上で分析価値を優先）
-- Redis 接続断時にイベントが消失しない（メモリバッファで一時保持）
-- PostgreSQL 接続断時にイベントが消失しない（Redis 内に未 ACK として保持）
-- API は認証なしではアクセスできない（health エンドポイント除く）
-- Honeypot ポートと管理用ポートは異なるインターフェースにバインドされる
+### Property 1: 認証の非許可
+
+Honeypot は実際のシステムへの認証を許可しない（SSH は常に拒否、HTTP は模擬レスポンスのみ）。
+
+**Validates: Requirements 1.2, 2.2**
+
+### Property 2: パスワードの平文保存
+
+パスワードは平文で保存する（攻撃パターン分析・辞書攻撃傾向の可視化に使用。リスクを認識した上で分析価値を優先）。
+
+**Validates: Requirements 7.2**
+
+### Property 3: Redis 断時の非消失
+
+Redis 接続断時にイベントが消失しない（メモリバッファで一時保持）。
+
+**Validates: Requirements 9.2**
+
+### Property 4: DB 断時の非消失
+
+PostgreSQL 接続断時にイベントが消失しない（Redis 内に未 ACK として保持）。
+
+**Validates: Requirements 9.2**
+
+### Property 5: API 認証の必須化
+
+API は認証なしではアクセスできない（health エンドポイント除く）。
+
+**Validates: Requirements 7.3**
+
+### Property 6: ネットワーク分離
+
+Honeypot ポートと管理用ポートは異なるインターフェースにバインドされる。
+
+**Validates: Requirements 7.1**

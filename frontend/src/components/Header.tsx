@@ -1,10 +1,25 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
+import type { View } from "../types";
 
 /**
  * ヘッダーコンポーネント
- * ロゴと最終更新時刻を表示する
+ * ロゴ・最終更新時刻を表示し、ダッシュボード / イベント一覧のビュー切替ナビゲーションを提供する。
+ * DashboardPage / EventListPage の双方で共通利用する。
  */
-export function Header() {
+interface HeaderProps {
+  /** 現在表示中のビュー（ナビのアクティブ表示に利用） */
+  currentView: View;
+  /** ビュー切替時に呼ばれるコールバック */
+  onNavigate: (view: View) => void;
+}
+
+/** ナビゲーションの項目定義 */
+const NAV_ITEMS: { view: View; label: string }[] = [
+  { view: "dashboard", label: "Dashboard" },
+  { view: "events", label: "Events" },
+];
+
+export function Header({ currentView, onNavigate }: HeaderProps) {
   const [lastUpdated, setLastUpdated] = useState<string>("");
 
   useEffect(() => {
@@ -26,10 +41,27 @@ export function Header() {
         <span className="text-xs text-gray-500 bg-hw-card px-2 py-0.5 rounded">
           v0.1.0
         </span>
+
+        {/* ビュー切替ナビゲーション（ルーティングライブラリなし） */}
+        <nav className="flex gap-1 ml-4">
+          {NAV_ITEMS.map((item) => (
+            <button
+              key={item.view}
+              type="button"
+              onClick={() => onNavigate(item.view)}
+              aria-current={currentView === item.view ? "page" : undefined}
+              className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                currentView === item.view
+                  ? "bg-hw-accent text-white"
+                  : "bg-hw-card text-gray-400 hover:text-gray-200 border border-hw-border"
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
       </div>
-      <div className="text-sm text-gray-400">
-        Last updated: {lastUpdated}
-      </div>
+      <div className="text-sm text-gray-400">Last updated: {lastUpdated}</div>
     </header>
   );
 }
