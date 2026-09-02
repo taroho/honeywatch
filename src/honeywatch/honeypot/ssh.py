@@ -37,13 +37,21 @@ class SSHHoneypotServer(asyncssh.SSHServer):
         self._conn_start = time.time()
         self._peer_addr: tuple[str, int] | None = None
         self._client_version = ""
+        # 接続オブジェクトを保持する。
+        # client_version はバージョン交換完了後でないと取得できないため、
+        # 認証段階（validate_password）で取り直す用途で保持しておく。
+        self._conn: asyncssh.SSHServerConnection | None = None
 
     def connection_made(self, conn: asyncssh.SSHServerConnection) -> None:
         """接続が確立されたときに呼ばれる."""
+        self._conn = conn
         peername = conn.get_extra_info("peername")
         if peername:
             self._peer_addr = (peername[0], peername[1])
-        # SSH クライアントバージョンを記録
+        # SSH クライアントバージョンの取得を試みる。
+        # ただし connection_made は TCP 接続直後に呼ばれ、この時点では
+        # SSH バージョン交換が未完了のため空になることが多い。
+        # 実際の記録値は validate_password 内で取り直す。
         self._client_version = conn.get_extra_info("client_version", "")
         logger.debug(
             "ssh_honeypot.connection_made",
@@ -85,6 +93,15 @@ class SSHHoneypotServer(asyncssh.SSHServer):
             常に False（認証失敗）
         """
         self._attempts += 1
+
+        # client_version を取り直す。
+        # connection_made の時点ではバージョン交換前で空になることが多いが、
+        # 認証段階まで到達していれば交換は完了しているため確実に取得できる。
+        # 取得できなかった場合は既存の値（多くは空文字）を維持する。
+        if self._conn is not None:
+            self._client_version = self._conn.get_extra_info(
+                "client_version", self._client_version
+            )
 
         # パスワードを平文で記録（攻撃パターン分析・辞書攻撃傾向の可視化に使用）
         # リスク認識: DB 漏洩時に攻撃者のパスワードリストとして悪用される可能性がある
