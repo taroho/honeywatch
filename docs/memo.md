@@ -32,11 +32,12 @@ Phase 2（Detection）の Task 1〜12 を実装・動作確認済み:
 - インスタンス: t3.micro / EBS 16GB / スワップ 2GB
 - 全6コンテナ稼働（postgres / redis / api / worker / honeypot / frontend）
 - 2026/09/01 15:35 (JST) Elastic IP を割り当て
+- 2026/09/02 16:05 (JST) ssh_connectionを追加
 
 ### 初期に観測した攻撃
 
 稼働開始から数時間以内に実際の攻撃を観測:
-
+追加追加
 - zgrab による `/hudson` スキャン（Jenkins 系の脆弱性偵察, 送信元 172.202.121.211）
 - python-requests による `/api/kernels` `/api/v1/version` への複数アクセス
   （Jupyter Notebook の脆弱性偵察, 送信元 3.74.226.174, 同一IPから4回）

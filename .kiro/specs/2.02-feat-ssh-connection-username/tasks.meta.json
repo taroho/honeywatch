@@ -1,0 +1,38 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1.1 `SSHHoneypotServer.__init__` に接続ユーザー名保持属性を追加する": [
+      {
+        "executionId": "c5b95a5d-8261-4bad-b10a-f5dbf73e0829",
+        "chatSessionId": "sess_b5663154-95d1-4bfd-b1ec-85140c280b8c",
+        "timestamp": 1788339893178
+      },
+      {
+        "executionId": "c5b95a5d-8261-4bad-b10a-f5dbf73e0829",
+        "chatSessionId": "sess_b5663154-95d1-4bfd-b1ec-85140c280b8c",
+        "timestamp": 1788339908082
+      }
+    ],
+    "1.2 `SSHHoneypotServer.begin_auth` で接続ユーザー名を保存する": [
+      {
+        "executionId": "c5b95a5d-8261-4bad-b10a-f5dbf73e0829",
+        "chatSessionId": "sess_b5663154-95d1-4bfd-b1ec-85140c280b8c",
+        "timestamp": 1788339893378
+      }
+    ],
+    "1.3 `SSHHoneypotServer.connection_lost` の `ssh_connection` の raw_data にユーザー名を付与する": [
+      {
+        "executionId": "c5b95a5d-8261-4bad-b10a-f5dbf73e0829",
+        "chatSessionId": "sess_b5663154-95d1-4bfd-b1ec-85140c280b8c",
+        "timestamp": 1788339893567
+      }
+    ],
+    "2. Checkpoint - 静的解析と変更範囲の確認": [
+      {
+        "executionId": "c5b95a5d-8261-4bad-b10a-f5dbf73e0829",
+        "chatSessionId": "sess_b5663154-95d1-4bfd-b1ec-85140c280b8c",
+        "timestamp": 1788339893721
+      }
+    ]
+  }
+}

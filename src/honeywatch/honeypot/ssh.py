@@ -47,6 +47,10 @@ class SSHHoneypotServer(asyncssh.SSHServer):
         # 保持しておかないと Task が途中で GC される可能性がある。
         # ここで強参照を保持し、完了時に done コールバックで除去する。
         self._pending_tasks: set[asyncio.Task[None]] = set()
+        # 接続ユーザー名。begin_auth で受け取り保存する。
+        # begin_auth が呼ばれない接続（純粋なポートスキャン・バナー取得のみ）では
+        # 空文字のまま connection_lost に到達する（Requirement 1.3 / 2.3）。
+        self._username: str = ""
 
     def connection_made(self, conn: asyncssh.SSHServerConnection) -> None:
         """接続が確立されたときに呼ばれる."""
@@ -113,6 +117,15 @@ class SSHHoneypotServer(asyncssh.SSHServer):
             "connection_duration": time.time() - self._conn_start,
             # バグ条件により認証試行は常に 0。
             "auth_attempts": 0,
+            # 接続ユーザー名。begin_auth で保存した値。取得できなかった場合は
+            # 初期値の空文字となる（Requirement 2.3）。
+            # キー名を "username" ではなく "connection_username" とする理由:
+            # 分類器 detection/classifier.py の _is_credential_attack は
+            # raw_data.get("username") を既知の弱いユーザー名（root/admin 等）と
+            # 照合するため、"username" キーで格納すると認証試行のない単なる接続が
+            # credential_attack と誤判定される。"connection_username" なら
+            # 分類器を変更せず .get("username") が None を返し素通りする。
+            "connection_username": self._username,
         }
 
         event = AttackEvent(
@@ -155,9 +168,18 @@ class SSHHoneypotServer(asyncssh.SSHServer):
     def begin_auth(self, username: str) -> bool:
         """認証を開始する（常に認証を要求する）.
 
+        クライアントが送信した接続ユーザー名を保存する。パスワードを
+        送らずに切断された接続でも、標的とされたユーザー名を観測できるようにする。
+
+        Args:
+            username: クライアントが送信したユーザー名
+
         Returns:
-            True: 認証が必要
+            True: 認証が必要（既存挙動を維持）
         """
+        # 接続ユーザー名を保存する。asyncssh の内部実装により begin_auth は
+        # 同一接続で複数回呼ばれ得るため、単純代入で「最後に受け取った値」を保持する。
+        self._username = username
         return True
 
     def password_auth_supported(self) -> bool:
