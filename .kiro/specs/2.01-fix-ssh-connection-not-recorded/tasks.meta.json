@@ -1,0 +1,86 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "0. テスト方式の確認（hypothesis 導入可否）": [
+      {
+        "executionId": "78b10934-2519-4f7d-a3ce-3f65f97d8519",
+        "chatSessionId": "sess_b5663154-95d1-4bfd-b1ec-85140c280b8c",
+        "timestamp": 1788331489855
+      },
+      {
+        "executionId": "78b10934-2519-4f7d-a3ce-3f65f97d8519",
+        "chatSessionId": "sess_b5663154-95d1-4bfd-b1ec-85140c280b8c",
+        "timestamp": 1788331502238
+      },
+      {
+        "executionId": "78b10934-2519-4f7d-a3ce-3f65f97d8519",
+        "chatSessionId": "sess_b5663154-95d1-4bfd-b1ec-85140c280b8c",
+        "timestamp": 1788331578350
+      }
+    ],
+    "1. バグ条件の探索テストを作成する（修正前に実施）": [
+      {
+        "executionId": "78b10934-2519-4f7d-a3ce-3f65f97d8519",
+        "chatSessionId": "sess_b5663154-95d1-4bfd-b1ec-85140c280b8c",
+        "timestamp": 1788331490303
+      },
+      {
+        "executionId": "78b10934-2519-4f7d-a3ce-3f65f97d8519",
+        "chatSessionId": "sess_b5663154-95d1-4bfd-b1ec-85140c280b8c",
+        "timestamp": 1788331591557
+      }
+    ],
+    "2. 保存（Preservation）テストを作成する（修正前に実施）": [
+      {
+        "executionId": "78b10934-2519-4f7d-a3ce-3f65f97d8519",
+        "chatSessionId": "sess_b5663154-95d1-4bfd-b1ec-85140c280b8c",
+        "timestamp": 1788331490528
+      }
+    ],
+    "3.1 修正を実装する": [
+      {
+        "executionId": "78b10934-2519-4f7d-a3ce-3f65f97d8519",
+        "chatSessionId": "sess_b5663154-95d1-4bfd-b1ec-85140c280b8c",
+        "timestamp": 1788331490747
+      },
+      {
+        "executionId": "f31257ca-bcf4-4993-a0f5-b6179be1565f",
+        "chatSessionId": "sess_b5663154-95d1-4bfd-b1ec-85140c280b8c",
+        "timestamp": 1788331975321
+      },
+      {
+        "executionId": "f31257ca-bcf4-4993-a0f5-b6179be1565f",
+        "chatSessionId": "sess_b5663154-95d1-4bfd-b1ec-85140c280b8c",
+        "timestamp": 1788332262164
+      }
+    ],
+    "3.2 バグ条件の探索テストが PASS することを確認する": [
+      {
+        "executionId": "78b10934-2519-4f7d-a3ce-3f65f97d8519",
+        "chatSessionId": "sess_b5663154-95d1-4bfd-b1ec-85140c280b8c",
+        "timestamp": 1788331490873
+      }
+    ],
+    "3.3 保存テストが引き続き PASS することを確認する": [
+      {
+        "executionId": "78b10934-2519-4f7d-a3ce-3f65f97d8519",
+        "chatSessionId": "sess_b5663154-95d1-4bfd-b1ec-85140c280b8c",
+        "timestamp": 1788331491023
+      }
+    ],
+    "4. Checkpoint - 全テストと静的解析を通す": [
+      {
+        "executionId": "78b10934-2519-4f7d-a3ce-3f65f97d8519",
+        "chatSessionId": "sess_b5663154-95d1-4bfd-b1ec-85140c280b8c",
+        "timestamp": 1788331491144
+      }
+    ],
+    "5. 本番反映時の注意点の共有（コード変更なし）": [
+      {
+        "executionId": "78b10934-2519-4f7d-a3ce-3f65f97d8519",
+        "chatSessionId": "sess_b5663154-95d1-4bfd-b1ec-85140c280b8c",
+        "timestamp": 1788331491276
+      }
+    ]
+  }
+}

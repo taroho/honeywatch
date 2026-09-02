@@ -4,6 +4,7 @@ asyncssh を使用して SSH サーバーを模倣する。
 すべての認証試行を記録し、常に認証を失敗させる。
 """
 
+import asyncio
 import os
 import time
 from pathlib import Path
@@ -41,6 +42,11 @@ class SSHHoneypotServer(asyncssh.SSHServer):
         # client_version はバージョン交換完了後でないと取得できないため、
         # 認証段階（validate_password）で取り直す用途で保持しておく。
         self._conn: asyncssh.SSHServerConnection | None = None
+        # connection_lost（同期コールバック）から async の emit_event を
+        # asyncio.create_task でスケジュールする際、生成した Task への参照を
+        # 保持しておかないと Task が途中で GC される可能性がある。
+        # ここで強参照を保持し、完了時に done コールバックで除去する。
+        self._pending_tasks: set[asyncio.Task[None]] = set()
 
     def connection_made(self, conn: asyncssh.SSHServerConnection) -> None:
         """接続が確立されたときに呼ばれる."""
@@ -60,11 +66,90 @@ class SSHHoneypotServer(asyncssh.SSHServer):
         )
 
     def connection_lost(self, exc: Exception | None) -> None:
-        """接続が切断されたときに呼ばれる."""
+        """接続が切断されたときに呼ばれる.
+
+        認証試行が 0 回のまま切断された接続（ポートスキャン、バナー取得のみ、
+        公開鍵認証のみ、認証方式確認のみ等）は validate_password が呼ばれず、
+        従来は debug ログのみで記録されなかった。この観測漏れを埋めるため、
+        self._attempts == 0 の場合に限り event_type="ssh_connection" の
+        AttackEvent を 1 件発行する。
+
+        二重記録防止: self._attempts >= 1 の接続は既に validate_password 内で
+        ssh_login_attempt として記録済みのため、ここでは ssh_connection を
+        発行しない。これにより既存の認証試行記録挙動を保存する。
+        """
+        # 既存の debug ログ出力は維持する（挙動保存）。
         logger.debug(
             "ssh_honeypot.connection_lost",
             source_ip=self._peer_addr[0] if self._peer_addr else "unknown",
             attempts=self._attempts,
+        )
+
+        # 認証試行が 1 回以上あった接続は ssh_login_attempt で記録済みのため、
+        # ここでは何もしない（二重記録防止）。
+        if self._attempts != 0:
+            return
+
+        # --- 認証試行なし接続（self._attempts == 0）のイベント構築 ---
+        # source_ip / source_port は validate_password の既存フォールバックと
+        # 値を揃える（未取得時は "0.0.0.0" / 0）。
+        source_ip = self._peer_addr[0] if self._peer_addr else "0.0.0.0"
+        source_port = self._peer_addr[1] if self._peer_addr else 0
+
+        # raw_data は案B（dict 直接構築）を採用する。
+        # ssh_connection は認証情報を持たない接続イベントであり、SSHEventData の
+        # 必須フィールド username/password を空文字で埋めると
+        # 「認証情報を持たない接続に空の認証フィールドを付与する」ことになり
+        # 意味的に不正確で、機密値を必要以上に保存しない方針にも反する。
+        # そのため接続イベント専用のフィールドのみを dict で直接構築する。
+        # また、raw_data に username/password を含めないことで、分類器の
+        # _is_credential_attack が .get() で None を得て素通りし、既存分類を
+        # 壊さない（Preservation の担保）。
+        raw_data: dict[str, object] = {
+            # 接続段階では SSH バージョン交換が未完了で空になり得るが、
+            # 空でもイベント発行は妨げない（Requirement 2.3）。
+            "client_version": self._client_version,
+            # 接続確立から切断までの経過時間（秒、0 以上）。
+            "connection_duration": time.time() - self._conn_start,
+            # バグ条件により認証試行は常に 0。
+            "auth_attempts": 0,
+        }
+
+        event = AttackEvent(
+            source_ip=source_ip,
+            source_port=source_port,
+            destination_port=self._honeypot.port,
+            protocol="ssh",
+            event_type="ssh_connection",
+            raw_data=raw_data,
+        )
+
+        # --- 同期 → async ブリッジ ---
+        # connection_lost は同期コールバックだが、唯一のイベント投入口
+        # emit_event は async。asyncssh のコールバックはイベントループ内から
+        # 呼ばれる前提のため、asyncio.create_task でループへスケジュールする。
+        # 実行中ループが取得できない場合（RuntimeError）はイベント発行を諦め、
+        # warning ログのみとして connection_lost から例外を伝播させない。
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            logger.warning(
+                "ssh_honeypot.connection_event_dropped",
+                source_ip=source_ip,
+                reason="no_running_event_loop",
+            )
+            return
+
+        # Task を生成し、GC 防止のため強参照を集合に保持する。
+        # 完了後は done コールバックで集合から除去する。
+        task = asyncio.create_task(self._honeypot.emit_event(event))
+        self._pending_tasks.add(task)
+        task.add_done_callback(self._pending_tasks.discard)
+
+        logger.info(
+            "ssh_honeypot.connection_event",
+            source_ip=source_ip,
+            client_version=self._client_version,
         )
 
     def begin_auth(self, username: str) -> bool:
