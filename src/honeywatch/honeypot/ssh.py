@@ -286,6 +286,8 @@ class SSHHoneypot(BaseHoneypot):
         self._reported_port = settings.honeypot.ssh_reported_port
         self._host_key_dir = settings.honeypot.ssh_host_key_dir
         self._timeout = settings.honeypot.ssh_timeout
+        # クライアントに広告するサーバーバナー（OpenSSH 等を偽装）
+        self._server_version = settings.honeypot.ssh_server_version
 
     @property
     def name(self) -> str:
@@ -312,6 +314,9 @@ class SSHHoneypot(BaseHoneypot):
             self._port,
             server_host_keys=host_keys,
             login_timeout=self._timeout,
+            # 実サーバーに見せかけるためバナーを偽装する
+            # （asyncssh が "SSH-2.0-" を自動付与するため接頭辞は不要）
+            server_version=self._server_version,
             process_factory=None,
         )
 
@@ -319,6 +324,7 @@ class SSHHoneypot(BaseHoneypot):
             "ssh_honeypot.started",
             host=self._host,
             port=self._port,
+            server_version=self._server_version,
         )
 
         # サーバーが閉じるまで待機（stop() が呼ばれるまでブロック）

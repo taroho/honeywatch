@@ -54,6 +54,10 @@ class HoneypotSettings(BaseSettings):
     ssh_max_auth_attempts: int = 10
     ssh_timeout: int = 30
     ssh_host_key_dir: str = "data/ssh_host_keys"
+    # クライアントに広告するサーバーバナー（SSH-2.0- プレフィックスは asyncssh が自動付与する）。
+    # デフォルトの "AsyncSSH_x.x.x" は Honeypot と判別されやすいため、
+    # 一般的な OpenSSH のバナーを偽装して攻撃を誘引しやすくする。
+    ssh_server_version: str = "OpenSSH_8.9p1 Ubuntu-3ubuntu0.10"
 
     # HTTP Honeypot
     http_host: str = "0.0.0.0"  # noqa: S104 — Honeypot は意図的に外部公開する
