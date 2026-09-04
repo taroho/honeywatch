@@ -123,9 +123,14 @@ export async function login(username: string, password: string): Promise<void> {
   }
 }
 
-/** Dashboard サマリーを取得する */
-export async function fetchDashboardSummary(): Promise<DashboardSummary> {
-  const response = await fetchWithAuth(`${API_BASE}/dashboard/summary`);
+/** Dashboard サマリーを取得する（period で集計期間を指定、既定 24h） */
+export async function fetchDashboardSummary(
+  period: string = "24h"
+): Promise<DashboardSummary> {
+  const params = new URLSearchParams({ period });
+  const response = await fetchWithAuth(
+    `${API_BASE}/dashboard/summary?${params}`
+  );
   return response.json();
 }
 

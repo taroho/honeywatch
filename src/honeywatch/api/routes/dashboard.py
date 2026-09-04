@@ -4,12 +4,11 @@
 認証必須。
 """
 
-from datetime import UTC, datetime, timedelta
-
 from fastapi import APIRouter, Query
 
 from honeywatch.api.deps import AuthUser, DbSession
-from honeywatch.db.repositories.attack import AttackEventRepository
+from honeywatch.api.period import PERIOD_PATTERN, resolve_period_range
+from honeywatch.db.repositories.attack import _MONTH_SENTINEL, AttackEventRepository
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -18,28 +17,35 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 async def get_dashboard_summary(
     _user: AuthUser,
     db: DbSession,
+    period: str = Query(default="24h", pattern=PERIOD_PATTERN),
 ) -> dict[str, object]:
     """Dashboard サマリーカード用の統計データを返す.
 
-    本日の攻撃数、ユニーク IP 数、SSH 試行数、HTTP 攻撃数を集計する。
+    選択された period の集計対象期間で、攻撃数・ユニーク IP 数・SSH 試行数・
+    HTTP 攻撃数を集計する。period 未指定時は既定 ``24h``。``all`` のときは
+    下限なし（全期間）となり、``period_start`` は null を返す。
+
+    Args:
+        period: 集計期間（1h/6h/24h/7d/1y/all、既定 24h）
 
     Returns:
         サマリー統計データ
     """
-    now = datetime.now(UTC)
-    period_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    period_end = now
+    # period → 集計範囲を共通ヘルパーで解決する（all のとき since=None）
+    since, until = resolve_period_range(period)
 
     repo = AttackEventRepository(db)
-    summary = await repo.get_summary(since=period_start, until=period_end)
+    summary = await repo.get_summary(since=since, until=until)
 
     return {
+        # レスポンスキー名は後方互換のため従来のまま維持する
         "attacks_today": summary["total"],
         "unique_ips_today": summary["unique_ips"],
         "ssh_attempts_today": summary["ssh_attempts"],
         "http_attacks_today": summary["http_attacks"],
-        "period_start": period_start.isoformat(),
-        "period_end": period_end.isoformat(),
+        # since が None（all）のときは下限なしを表す null を返す
+        "period_start": since.isoformat() if since is not None else None,
+        "period_end": until.isoformat(),
     }
 
 
@@ -47,28 +53,20 @@ async def get_dashboard_summary(
 async def get_dashboard_timeline(
     _user: AuthUser,
     db: DbSession,
-    period: str = Query(default="24h", pattern="^(1h|6h|24h|7d)$"),
+    period: str = Query(default="24h", pattern=PERIOD_PATTERN),
     interval: str = Query(default="1h", pattern="^(5m|15m|1h)$"),
 ) -> dict[str, object]:
     """時間帯別の攻撃数を返す（タイムライングラフ用）.
 
     Args:
-        period: 集計期間（1h, 6h, 24h, 7d）
+        period: 集計期間（1h/6h/24h/7d/1y/all）
         interval: 集計間隔（5m, 15m, 1h）
 
     Returns:
         タイムラインデータ
     """
-    now = datetime.now(UTC)
-
-    # 期間を計算
-    period_map: dict[str, timedelta] = {
-        "1h": timedelta(hours=1),
-        "6h": timedelta(hours=6),
-        "24h": timedelta(hours=24),
-        "7d": timedelta(days=7),
-    }
-    since = now - period_map[period]
+    # period → 集計範囲を共通ヘルパーで解決する（all のとき since=None）
+    since, until = resolve_period_range(period)
 
     # 間隔を分に変換
     interval_map: dict[str, int] = {
@@ -78,10 +76,15 @@ async def get_dashboard_timeline(
     }
     interval_minutes = interval_map[interval]
 
+    # 1y / all は暦月単位で集計する（区間数を月数に抑える）。
+    # interval 指定によらず月粒度（番兵値）を用いる。
+    if period in ("1y", "all"):
+        interval_minutes = _MONTH_SENTINEL
+
     repo = AttackEventRepository(db)
     timeline = await repo.get_timeline(
         since=since,
-        until=now,
+        until=until,
         interval_minutes=interval_minutes,
     )
 
@@ -93,28 +96,21 @@ async def get_dashboard_top_ips(
     _user: AuthUser,
     db: DbSession,
     limit: int = Query(default=10, ge=1, le=100),
-    period: str = Query(default="24h", pattern="^(1h|6h|24h|7d)$"),
+    period: str = Query(default="24h", pattern=PERIOD_PATTERN),
 ) -> dict[str, object]:
     """攻撃数の多い送信元 IP ランキングを返す.
 
     Args:
         limit: 取得件数
-        period: 集計期間
+        period: 集計期間（1h/6h/24h/7d/1y/all）
 
     Returns:
         IP ランキングデータ
     """
-    now = datetime.now(UTC)
-
-    period_map: dict[str, timedelta] = {
-        "1h": timedelta(hours=1),
-        "6h": timedelta(hours=6),
-        "24h": timedelta(hours=24),
-        "7d": timedelta(days=7),
-    }
-    since = now - period_map[period]
+    # period → 集計範囲を共通ヘルパーで解決する（all のとき since=None）
+    since, until = resolve_period_range(period)
 
     repo = AttackEventRepository(db)
-    ips = await repo.get_top_ips(since=since, until=now, limit=limit)
+    ips = await repo.get_top_ips(since=since, until=until, limit=limit)
 
     return {"ips": ips}

@@ -13,23 +13,16 @@ geo 各フィールド null の JSON を返す。
 """
 
 import ipaddress
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Query
 
 from honeywatch.analysis.geoip import CountryAggregator, GeoLocation
 from honeywatch.api.deps import AuthUser, DbSession, GeoIPResolverDep
+from honeywatch.api.period import PERIOD_PATTERN, resolve_period_range
 from honeywatch.db.repositories.attack import AttackEventRepository
 
 router = APIRouter(prefix="/geo", tags=["geo"])
-
-# 集計期間文字列 → timedelta のマップ（dashboard.py と同一のロジック）
-_PERIOD_MAP: dict[str, timedelta] = {
-    "1h": timedelta(hours=1),
-    "6h": timedelta(hours=6),
-    "24h": timedelta(hours=24),
-    "7d": timedelta(days=7),
-}
 
 
 def _geo_to_dict(loc: GeoLocation) -> dict[str, object]:
@@ -120,7 +113,7 @@ async def get_geo_top_ips(
     db: DbSession,
     resolver: GeoIPResolverDep,
     limit: int = Query(default=10, ge=1, le=100),
-    period: str = Query(default="24h", pattern="^(1h|6h|24h|7d)$"),
+    period: str = Query(default="24h", pattern=PERIOD_PATTERN),
 ) -> dict[str, object]:
     """攻撃数の多い送信元 IP ランキングに Geo_Location を付与して返す.
 
@@ -130,16 +123,16 @@ async def get_geo_top_ips(
 
     Args:
         limit: 取得件数（1〜100、既定 10）
-        period: 集計期間（1h/6h/24h/7d、既定 24h）
+        period: 集計期間（1h/6h/24h/7d/1y/all、既定 24h）
 
     Returns:
         各エントリに geo を付与した Top IP ランキングの JSON
     """
-    now = datetime.now(UTC)
-    since = now - _PERIOD_MAP[period]
+    # period → 集計範囲を共通ヘルパーで解決する（all のとき since=None）
+    since, until = resolve_period_range(period)
 
     repo = AttackEventRepository(db)
-    ips = await repo.get_top_ips(since=since, until=now, limit=limit)
+    ips = await repo.get_top_ips(since=since, until=until, limit=limit)
 
     entries: list[dict[str, object]] = []
     for ip in ips:

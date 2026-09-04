@@ -13,6 +13,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from honeywatch.db.models import AttackEventModel
 
+# get_timeline の集計粒度を月単位（date_trunc('month')）に切り替える番兵値（分）。
+# interval_minutes がこの値以上のとき暦月バケットで集計する。30 日相当（30*24*60）。
+# 通常の interval（5m/15m/1h → 5/15/60）では到達せず、1y/all のルートのみが渡す。
+_MONTH_SENTINEL = 43200
+
 
 class IPAggregate(TypedDict):
     """IP 別集計データ（プロファイル構築・Risk ランキング用）."""
@@ -132,22 +137,24 @@ class AttackEventRepository:
 
     async def get_summary(
         self,
-        since: datetime,
+        since: datetime | None,
         until: datetime,
     ) -> dict[str, int]:
         """指定期間の攻撃サマリーを取得する.
 
         Args:
-            since: 集計開始日時
-            until: 集計終了日時
+            since: 集計開始日時（下限）。None の場合は下限フィルタを付けず、
+                until 以前の全 Attack_Event を集計対象とする（all 期間）。
+            until: 集計終了日時（上限）。常に適用される。
 
         Returns:
             サマリー辞書（total, unique_ips, ssh_attempts, http_attacks）
         """
-        base_filter = (
-            AttackEventModel.timestamp >= since,
-            AttackEventModel.timestamp <= until,
-        )
+        # until は常に適用し、since は None でなければ下限フィルタを追加する。
+        # 非 None の since を渡す既存呼び出しは従来どおり両端フィルタとなる（後方互換）。
+        base_filter = [AttackEventModel.timestamp <= until]
+        if since is not None:
+            base_filter.append(AttackEventModel.timestamp >= since)
 
         # 合計件数
         total_result = await self._session.execute(
@@ -188,20 +195,26 @@ class AttackEventRepository:
 
     async def get_top_ips(
         self,
-        since: datetime,
+        since: datetime | None,
         until: datetime,
         limit: int = 10,
     ) -> list[dict[str, object]]:
         """攻撃数の多い送信元 IP ランキングを取得する.
 
         Args:
-            since: 集計開始日時
-            until: 集計終了日時
+            since: 集計開始日時（下限）。None の場合は下限フィルタを付けず、
+                until 以前の全 Attack_Event を集計対象とする（all 期間）。
+            until: 集計終了日時（上限）。常に適用される。
             limit: 取得件数
 
         Returns:
             IP ごとの集計結果リスト
         """
+        # until は常に適用し、since は None でなければ下限フィルタを追加する（後方互換）。
+        filters = [AttackEventModel.timestamp <= until]
+        if since is not None:
+            filters.append(AttackEventModel.timestamp >= since)
+
         result = await self._session.execute(
             select(
                 AttackEventModel.source_ip,
@@ -209,10 +222,7 @@ class AttackEventRepository:
                 func.min(AttackEventModel.timestamp).label("first_seen"),
                 func.max(AttackEventModel.timestamp).label("last_seen"),
             )
-            .where(
-                AttackEventModel.timestamp >= since,
-                AttackEventModel.timestamp <= until,
-            )
+            .where(*filters)
             .group_by(AttackEventModel.source_ip)
             .order_by(func.count(AttackEventModel.id).desc())
             .limit(limit)
@@ -231,28 +241,37 @@ class AttackEventRepository:
 
     async def get_timeline(
         self,
-        since: datetime,
+        since: datetime | None,
         until: datetime,
         interval_minutes: int = 60,
     ) -> list[dict[str, object]]:
         """時間帯別のイベント数を取得する（タイムライン用）.
 
         Args:
-            since: 集計開始日時
-            until: 集計終了日時
+            since: 集計開始日時（下限）。None の場合は下限フィルタを付けず、
+                until 以前の全 Attack_Event を集計対象とする（all 期間）。
+            until: 集計終了日時（上限）。常に適用される。
             interval_minutes: 集計間隔（分）
 
         Returns:
             時間帯ごとの集計結果リスト
         """
         # PostgreSQL の date_trunc + interval でバケット集計
-        # interval_minutes に応じて適切な trunc 単位を選択
-        if interval_minutes <= 5:
+        # interval_minutes に応じて適切な trunc 単位を選択する。
+        # 番兵値（>= _MONTH_SENTINEL）のときは暦月単位（1y/all 用）を最上位で判定する。
+        if interval_minutes >= _MONTH_SENTINEL:
+            trunc_expr = func.date_trunc("month", AttackEventModel.timestamp)
+        elif interval_minutes <= 5:
             trunc_expr = func.date_trunc("minute", AttackEventModel.timestamp)
         elif interval_minutes <= 15:
             trunc_expr = func.date_trunc("quarter_hour", AttackEventModel.timestamp)
         else:
             trunc_expr = func.date_trunc("hour", AttackEventModel.timestamp)
+
+        # until は常に適用し、since は None でなければ下限フィルタを追加する（後方互換）。
+        filters = [AttackEventModel.timestamp <= until]
+        if since is not None:
+            filters.append(AttackEventModel.timestamp >= since)
 
         result = await self._session.execute(
             select(
@@ -265,10 +284,7 @@ class AttackEventRepository:
                 .filter(AttackEventModel.protocol == "http")
                 .label("http"),
             )
-            .where(
-                AttackEventModel.timestamp >= since,
-                AttackEventModel.timestamp <= until,
-            )
+            .where(*filters)
             .group_by("bucket")
             .order_by("bucket")
         )
@@ -330,28 +346,34 @@ class AttackEventRepository:
 
     async def count_by_attack_type(
         self,
-        since: datetime,
+        since: datetime | None,
         until: datetime,
     ) -> list[dict[str, object]]:
         """攻撃タイプ別のイベント件数を取得する.
 
         Args:
-            since: 集計開始日時
-            until: 集計終了日時
+            since: 集計開始日時（下限）。None の場合は下限フィルタを付けず、
+                until 以前の全 Attack_Event を集計対象とする（all 期間）。
+            until: 集計終了日時（上限）。常に適用される。
 
         Returns:
             攻撃タイプごとの件数リスト
         """
+        # until と attack_type の非 NULL 条件は常に適用し、
+        # since は None でなければ下限フィルタを追加する（後方互換）。
+        filters = [
+            AttackEventModel.timestamp <= until,
+            AttackEventModel.attack_type.is_not(None),
+        ]
+        if since is not None:
+            filters.append(AttackEventModel.timestamp >= since)
+
         result = await self._session.execute(
             select(
                 AttackEventModel.attack_type,
                 func.count(AttackEventModel.id).label("cnt"),
             )
-            .where(
-                AttackEventModel.timestamp >= since,
-                AttackEventModel.timestamp <= until,
-                AttackEventModel.attack_type.is_not(None),
-            )
+            .where(*filters)
             .group_by(AttackEventModel.attack_type)
             .order_by(func.count(AttackEventModel.id).desc())
         )
@@ -362,28 +384,34 @@ class AttackEventRepository:
 
     async def count_by_severity(
         self,
-        since: datetime,
+        since: datetime | None,
         until: datetime,
     ) -> dict[str, int]:
         """Severity 別のイベント件数を取得する.
 
         Args:
-            since: 集計開始日時
-            until: 集計終了日時
+            since: 集計開始日時（下限）。None の場合は下限フィルタを付けず、
+                until 以前の全 Attack_Event を集計対象とする（all 期間）。
+            until: 集計終了日時（上限）。常に適用される。
 
         Returns:
             Severity をキー、件数を値とする辞書
         """
+        # until と severity の非 NULL 条件は常に適用し、
+        # since は None でなければ下限フィルタを追加する（後方互換）。
+        filters = [
+            AttackEventModel.timestamp <= until,
+            AttackEventModel.severity.is_not(None),
+        ]
+        if since is not None:
+            filters.append(AttackEventModel.timestamp >= since)
+
         result = await self._session.execute(
             select(
                 AttackEventModel.severity,
                 func.count(AttackEventModel.id).label("cnt"),
             )
-            .where(
-                AttackEventModel.timestamp >= since,
-                AttackEventModel.timestamp <= until,
-                AttackEventModel.severity.is_not(None),
-            )
+            .where(*filters)
             .group_by(AttackEventModel.severity)
         )
         rows = result.all()
@@ -442,7 +470,7 @@ class AttackEventRepository:
 
     async def get_ip_aggregates_for_ranking(
         self,
-        since: datetime,
+        since: datetime | None,
         until: datetime,
         limit: int = 100,
     ) -> list[IPAggregate]:
@@ -452,13 +480,20 @@ class AttackEventRepository:
         Risk Score の算出は呼び出し側（RiskScorer）で行う。
 
         Args:
-            since: 集計開始日時
-            until: 集計終了日時
+            since: 集計開始日時（下限）。None の場合は下限フィルタを付けず、
+                until 以前の全 Attack_Event を集計対象とする（all 期間）。
+            until: 集計終了日時（上限）。常に適用される。
             limit: 対象とする上位 IP 数
 
         Returns:
             IP 別集計データのリスト
         """
+        # until は常に適用し、since は None でなければ下限フィルタを追加する（後方互換）。
+        # 下限フィルタは先頭の絞り込みクエリ（イベント数上位 IP の選定）にのみ適用する。
+        filters = [AttackEventModel.timestamp <= until]
+        if since is not None:
+            filters.append(AttackEventModel.timestamp >= since)
+
         # まずイベント数上位の IP を絞り込む
         top_ips_result = await self._session.execute(
             select(
@@ -467,10 +502,7 @@ class AttackEventRepository:
                 func.min(AttackEventModel.timestamp).label("first_seen"),
                 func.max(AttackEventModel.timestamp).label("last_seen"),
             )
-            .where(
-                AttackEventModel.timestamp >= since,
-                AttackEventModel.timestamp <= until,
-            )
+            .where(*filters)
             .group_by(AttackEventModel.source_ip)
             .order_by(func.count(AttackEventModel.id).desc())
             .limit(limit)

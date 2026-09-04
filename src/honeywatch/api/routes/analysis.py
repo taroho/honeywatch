@@ -4,12 +4,11 @@
 Severity 別統計を提供する。認証必須。
 """
 
-from datetime import UTC, datetime, timedelta
-
 from fastapi import APIRouter, HTTPException, Query
 
 from honeywatch.analysis.ip import IPAnalyzer, IPProfile
 from honeywatch.api.deps import AuthUser, DbSession
+from honeywatch.api.period import PERIOD_PATTERN, resolve_period_range
 from honeywatch.db.repositories.attack import AttackEventRepository, IPAggregate
 
 router = APIRouter(prefix="/analysis", tags=["analysis"])
@@ -26,36 +25,22 @@ def _build_profile(agg: IPAggregate) -> IPProfile:
         severities=agg["severities"],
     )
 
-# 集計期間 → timedelta のマップ
-_PERIOD_MAP: dict[str, timedelta] = {
-    "1h": timedelta(hours=1),
-    "6h": timedelta(hours=6),
-    "24h": timedelta(hours=24),
-    "7d": timedelta(days=7),
-}
-
-
-def _period_to_range(period: str) -> tuple[datetime, datetime]:
-    """集計期間文字列を (開始, 終了) の datetime に変換する."""
-    now = datetime.now(UTC)
-    return now - _PERIOD_MAP[period], now
-
 
 @router.get("/attack-types")
 async def get_attack_types(
     _user: AuthUser,
     db: DbSession,
-    period: str = Query(default="24h", pattern="^(1h|6h|24h|7d)$"),
+    period: str = Query(default="24h", pattern=PERIOD_PATTERN),
 ) -> dict[str, object]:
     """攻撃タイプ別の集計を返す.
 
     Args:
-        period: 集計期間（1h/6h/24h/7d）
+        period: 集計期間（1h/6h/24h/7d/1y/all）
 
     Returns:
         攻撃タイプごとの件数
     """
-    since, until = _period_to_range(period)
+    since, until = resolve_period_range(period)
     repo = AttackEventRepository(db)
     counts = await repo.count_by_attack_type(since=since, until=until)
     return {"attack_types": counts}
@@ -65,17 +50,17 @@ async def get_attack_types(
 async def get_severity_summary(
     _user: AuthUser,
     db: DbSession,
-    period: str = Query(default="24h", pattern="^(1h|6h|24h|7d)$"),
+    period: str = Query(default="24h", pattern=PERIOD_PATTERN),
 ) -> dict[str, object]:
     """Severity 別のイベント件数を返す.
 
     Args:
-        period: 集計期間
+        period: 集計期間（1h/6h/24h/7d/1y/all）
 
     Returns:
         Severity 別件数（HIGH / MEDIUM / LOW）
     """
-    since, until = _period_to_range(period)
+    since, until = resolve_period_range(period)
     repo = AttackEventRepository(db)
     summary = await repo.count_by_severity(since=since, until=until)
     # 全レベルを含めて返す（0件のレベルも明示）
@@ -93,18 +78,18 @@ async def get_risk_ranking(
     _user: AuthUser,
     db: DbSession,
     limit: int = Query(default=10, ge=1, le=100),
-    period: str = Query(default="24h", pattern="^(1h|6h|24h|7d)$"),
+    period: str = Query(default="24h", pattern=PERIOD_PATTERN),
 ) -> dict[str, object]:
     """Risk Score の高い IP ランキングを返す.
 
     Args:
         limit: 取得件数
-        period: 集計期間
+        period: 集計期間（1h/6h/24h/7d/1y/all）
 
     Returns:
         Risk Score 降順の IP ランキング
     """
-    since, until = _period_to_range(period)
+    since, until = resolve_period_range(period)
     repo = AttackEventRepository(db)
 
     # イベント数上位の候補を多めに取得してから Risk Score で並べ替える

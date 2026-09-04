@@ -92,6 +92,40 @@
 - インラインコードで検証したい場合は、スクリプトをファイルに書き出してから `uv run python <file>` で実行する。
 - パッケージの導入確認などは `uv pip list | grep -Ei "..."` のような単純なコマンドで代替する。
 
+### テスト・チェック実行の手順（sh 実行 → txt 読み取り）
+
+`uv run pytest` / `uv run mypy .` / `uv run ruff check` などをこの環境で実行すると、PowerShell → WSL の二重解釈でコマンドがエコーだけ表示され、標準出力（テスト結果）が Kiro 側に返らないことがある。そのため、次の手順で実行し結果を確認する。
+
+1. 実行内容をシェルスクリプト（例: `run_checks.sh`）としてファイルに書き出す。スクリプト内で以下を行う:
+   - `export PATH="$HOME/.local/bin:$PATH"` で `uv` に PATH を通す（非ログインシェルでは `uv: command not found` になるため必須）。
+   - `cd /home/<user>/.../<repo>` で対象ディレクトリへ移動する（`&&` で繋がず、`cd` 行を分ける）。
+   - 実行結果を **`.txt` ファイル**にリダイレクトする（`> out.txt 2>&1`）。終了コードも `echo "EXIT=$?" >> out.txt` で残すとよい。
+2. `wsl bash /home/<user>/.../<repo>/run_checks.sh` で実行する（`wsl -e bash -lc "..."` のインライン渡しは避ける）。
+3. リダイレクト先の `.txt` を read で読み取り、結果を確認する。
+
+スクリプト例:
+
+```bash
+#!/usr/bin/env bash
+export PATH="$HOME/.local/bin:$PATH"
+cd /home/<user>/taroho/honeywatch
+{
+  echo "=== pytest ==="
+  uv run pytest -q
+  echo "PYTEST_EXIT=$?"
+  echo "=== mypy ==="
+  uv run mypy .
+  echo "MYPY_EXIT=$?"
+  echo "=== ruff ==="
+  uv run ruff check <変更ファイル...>
+  echo "RUFF_EXIT=$?"
+} > checks_out.txt 2>&1
+```
+
+- 出力先は必ず `.txt` にする。`.log` はグローバルの読み取り拒否ルール（`deny fs_read matching "*.log"`）に該当し、Kiro から読み取れない。
+- 実行が長い場合、スクリプト起動直後に `.txt` を読むと途中経過しか無いことがある。少し待ってから再度読み取る。
+- 検証用に作成したスクリプト・`.txt` は、確認後にユーザーへ削除可否を確認したうえで片付ける（ファイル削除は事前確認が必要）。
+
 ## コーディング規約
 
 - Ruff を使ったリント・フォーマット

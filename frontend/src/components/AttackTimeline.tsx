@@ -17,9 +17,11 @@ import type { TimelinePoint } from "../types";
 interface AttackTimelineProps {
   data: TimelinePoint[];
   loading: boolean;
+  /** 選択中の集計期間。1y / all のとき横軸ラベルを年月表示に切り替える */
+  period: string;
 }
 
-export function AttackTimeline({ data, loading }: AttackTimelineProps) {
+export function AttackTimeline({ data, loading, period }: AttackTimelineProps) {
   if (loading) {
     return (
       <div className="bg-hw-card border border-hw-border rounded-lg p-4 h-64 flex items-center justify-center">
@@ -28,14 +30,19 @@ export function AttackTimeline({ data, loading }: AttackTimelineProps) {
     );
   }
 
-  // タイムスタンプを短い形式に変換
-  const formatted = data.map((point) => ({
-    ...point,
-    time: new Date(point.timestamp).toLocaleTimeString("ja-JP", {
-      hour: "2-digit",
-      minute: "2-digit",
-    }),
-  }));
+  // 1y / all は月単位バケットのため横軸を年月（YYYY/MM）で表示する。
+  // それ以外は従来どおり時刻（時:分）で表示する。
+  const isMonthly = period === "1y" || period === "all";
+  const formatted = data.map((point) => {
+    const d = new Date(point.timestamp);
+    const time = isMonthly
+      ? `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}`
+      : d.toLocaleTimeString("ja-JP", {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+    return { ...point, time };
+  });
 
   return (
     <div className="bg-hw-card border border-hw-border rounded-lg p-4">

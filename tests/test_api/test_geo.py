@@ -23,7 +23,7 @@ design.md「Correctness Properties」の Property 5・Property 9 を Hypothesis 
 """
 
 from collections.abc import Iterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -417,3 +417,58 @@ def test_top_ips_unresolved_entries_have_null_geo(client: TestClient) -> None:
     assert all(unresolved_geo[key] is None for key in unresolved_geo)
     # first_seen / last_seen は isoformat 文字列で返る
     assert isinstance(by_ip["8.8.8.8"]["first_seen"], str)
+
+
+# =====================================================================
+# ユニットテスト（例示）: /geo/top-ips の period 対応
+# spec 5-feat-dashboard-unified-period（Requirement 6.2, 6.3, 9.1）
+# =====================================================================
+
+
+def test_top_ips_all_passes_since_none(client: TestClient) -> None:
+    """period=all で get_top_ips に since=None が渡る（Requirement 6.3）."""
+    app.state.geoip_resolver = _make_resolver({})
+
+    with patch("honeywatch.api.routes.geo.AttackEventRepository") as repo_cls:
+        repo = repo_cls.return_value
+        repo.get_top_ips = AsyncMock(return_value=[])
+
+        response = client.get(f"{_BASE}/top-ips", params={"period": "all"})
+
+    assert response.status_code == 200
+    repo.get_top_ips.assert_awaited_once()
+    await_args = repo.get_top_ips.await_args
+    assert await_args is not None
+    assert await_args.kwargs["since"] is None
+
+
+def test_top_ips_1y_returns_200_with_365_days(client: TestClient) -> None:
+    """period=1y で 200 を返し since が直近 365 日（Requirement 6.2）."""
+    app.state.geoip_resolver = _make_resolver({})
+
+    with patch("honeywatch.api.routes.geo.AttackEventRepository") as repo_cls:
+        repo = repo_cls.return_value
+        repo.get_top_ips = AsyncMock(return_value=[])
+
+        response = client.get(f"{_BASE}/top-ips", params={"period": "1y"})
+
+    assert response.status_code == 200
+    await_args = repo.get_top_ips.await_args
+    assert await_args is not None
+    kwargs = await_args.kwargs
+    assert kwargs["since"] is not None
+    assert kwargs["until"] - kwargs["since"] == timedelta(days=365)
+
+
+def test_top_ips_invalid_period_returns_422(client: TestClient) -> None:
+    """不正 period（30d）は 422、集計を行わない（Requirement 9.1）."""
+    app.state.geoip_resolver = _make_resolver({})
+
+    with patch("honeywatch.api.routes.geo.AttackEventRepository") as repo_cls:
+        repo = repo_cls.return_value
+        repo.get_top_ips = AsyncMock(return_value=[])
+
+        response = client.get(f"{_BASE}/top-ips", params={"period": "30d"})
+
+    assert response.status_code == 422
+    repo.get_top_ips.assert_not_called()

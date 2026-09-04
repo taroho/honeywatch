@@ -22,8 +22,29 @@ import { useCountrySummary } from "../hooks/useCountrySummary";
 import { clearCredentials } from "../api/client";
 import type { View } from "../types";
 
-// 集計期間の選択肢
-const PERIOD_OPTIONS = ["1h", "6h", "24h", "7d"] as const;
+// 統一期間セレクタの選択肢（Requirement 1.2）
+const UNIFIED_PERIOD_OPTIONS = ["1h", "6h", "24h", "7d", "1y", "all"] as const;
+
+/**
+ * period を Country_Summary 用の (start, end) ISO8601 範囲に変換する.
+ *
+ * バックエンドの resolve_period_range と同一の期間定義に揃える。
+ * - "all": {}（start/end 未指定＝下限なしの全期間）
+ * - それ以外: end = 現在時刻、start = 現在時刻 - 当該期間
+ */
+function periodToRange(period: string): { start?: string; end?: string } {
+  if (period === "all") return {}; // 下限なし＝全期間（start/end 未指定）
+  const now = new Date();
+  const end = now.toISOString();
+  const ms: Record<string, number> = {
+    "1h": 3600e3,
+    "6h": 6 * 3600e3,
+    "24h": 24 * 3600e3,
+    "7d": 7 * 24 * 3600e3,
+    "1y": 365 * 24 * 3600e3,
+  };
+  return { start: new Date(now.getTime() - ms[period]).toISOString(), end };
+}
 
 interface DashboardPageProps {
   onLogout: () => void;
@@ -38,8 +59,8 @@ interface DashboardPageProps {
  * 全コンポーネントを組み合わせてレイアウトする
  */
 export function DashboardPage({ onLogout, onNavigate, currentView }: DashboardPageProps) {
-  // 分析セクションの集計期間（デフォルトは 7d）
-  const [period, setPeriod] = useState<string>("7d");
+  // Dashboard 全体の統一集計期間（初期 24h、Requirement 1.3）
+  const [period, setPeriod] = useState<string>("24h");
 
   // ログアウト: 認証情報を破棄してログイン画面へ
   const handleLogout = () => {
@@ -47,11 +68,11 @@ export function DashboardPage({ onLogout, onNavigate, currentView }: DashboardPa
     onLogout();
   };
 
-  const { data: summary, loading: summaryLoading } = useDashboardSummary();
-  const { data: timeline, loading: timelineLoading } = useTimeline();
-  // Top IPs は geo 付き（useGeoTopIPs）に切り替え、国表示に対応する
-  const { data: topIPs, loading: topIPsLoading } = useGeoTopIPs();
-  const { data: events, loading: eventsLoading } = useRecentEvents(10);
+  // Linked_Items: すべて単一 period に連動して集計（Requirement 2.1/2.2）
+  const { data: summary, loading: summaryLoading } = useDashboardSummary(period);
+  const { data: timeline, loading: timelineLoading } = useTimeline(period);
+  // Top IPs は geo 付き（useGeoTopIPs）で地図とテーブルを共用（limit=20, Requirement 6.4/6.6）
+  const { data: topIPs, loading: topIPsLoading } = useGeoTopIPs(20, period);
 
   // Phase 2: 分析データ（期間連動）
   const { data: attackTypes, loading: attackTypesLoading } =
@@ -60,8 +81,15 @@ export function DashboardPage({ onLogout, onNavigate, currentView }: DashboardPa
     useSeveritySummary(period);
   const { data: riskRanking, loading: riskLoading } = useRiskRanking(10, period);
 
-  // Phase 3: 国別攻撃件数ランキング（全期間集計）
-  const { data: countrySummary, loading: countryLoading } = useCountrySummary();
+  // Phase 3: 国別攻撃件数ランキング（period → start/end 変換で連動、Requirement 8.1〜8.3）
+  const { start, end } = periodToRange(period);
+  const { data: countrySummary, loading: countryLoading } = useCountrySummary(
+    start,
+    end
+  );
+
+  // Excluded_Items: Recent Events は period 非連動のまま据え置き（Requirement 2.3）
+  const { data: events, loading: eventsLoading } = useRecentEvents(10);
 
   return (
     <div className="min-h-screen bg-hw-bg p-6">
@@ -79,10 +107,32 @@ export function DashboardPage({ onLogout, onNavigate, currentView }: DashboardPa
           </button>
         </div>
 
-        {/* サマリーカード (4列) */}
+        {/* 統一期間セレクタ（Requirement 1.1/1.2/1.4/1.5）。
+            ヘッダー直下・サマリーカード直上に単一で配置する。
+            Detection Analysis と同一のタブ切り替え方式。 */}
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-lg font-bold text-gray-100">Dashboard</h1>
+          <div className="flex gap-1">
+            {UNIFIED_PERIOD_OPTIONS.map((opt) => (
+              <button
+                key={opt}
+                onClick={() => setPeriod(opt)}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                  period === opt
+                    ? "bg-hw-accent text-white"
+                    : "bg-hw-card text-gray-400 hover:text-gray-200"
+                }`}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* サマリーカード (4列)。表題は期間非依存の文言（Requirement 4.4）。 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <SummaryCard
-            title="Attacks Today"
+            title="Attacks"
             value={summary?.attacks_today ?? 0}
             color="text-white"
           />
@@ -108,6 +158,7 @@ export function DashboardPage({ onLogout, onNavigate, currentView }: DashboardPa
           <AttackTimeline
             data={timeline}
             loading={timelineLoading || summaryLoading}
+            period={period}
           />
         </div>
 
@@ -127,27 +178,12 @@ export function DashboardPage({ onLogout, onNavigate, currentView }: DashboardPa
           <GeoMap enabled={true} entries={topIPs} />
         </div>
 
-        {/* === Phase 2: Detection Analysis セクション === */}
+        {/* === Phase 2: Detection Analysis セクション ===
+            期間セレクタは統一セレクタ（ページ上部）に統合済み。見出しのみ残す。 */}
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-bold text-gray-100">
             Detection Analysis
           </h2>
-          {/* 期間セレクタ */}
-          <div className="flex gap-1">
-            {PERIOD_OPTIONS.map((opt) => (
-              <button
-                key={opt}
-                onClick={() => setPeriod(opt)}
-                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                  period === opt
-                    ? "bg-hw-accent text-white"
-                    : "bg-hw-card text-gray-400 hover:text-gray-200"
-                }`}
-              >
-                {opt}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* 攻撃タイプ別グラフ + Severity 内訳 (2カラム) */}
