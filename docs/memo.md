@@ -33,6 +33,7 @@ Phase 2（Detection）の Task 1〜12 を実装・動作確認済み:
 - 全6コンテナ稼働（postgres / redis / api / worker / honeypot / frontend）
 - 2026/09/01 15:35 (JST) Elastic IP を割り当て
 - 2026/09/02 16:05 (JST) ssh_connectionを追加
+- 2026/09/04 11:53 (JST) SSHバナーを変更
 
 ### 初期に観測した攻撃
 

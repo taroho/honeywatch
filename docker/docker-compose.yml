@@ -91,6 +91,12 @@ services:
       REDIS_HOST: redis
     ports:
       - "127.0.0.1:8000:8000"
+    volumes:
+      # GeoIP データベース（.mmdb）を読み取り専用でマウントする。
+      # compose の context は .. なのでホスト側は ../data/geoip を指す。
+      # コンテナ内は /app が作業ディレクトリで、GEOIP_DATABASE_PATH=data/geoip/GeoLite2-City.mmdb を解決できる。
+      # :ro で .mmdb の誤書き換えを防ぐ。
+      - ../data/geoip:/app/data/geoip:ro
     depends_on:
       postgres:
         condition: service_healthy

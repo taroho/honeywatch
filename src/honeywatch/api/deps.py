@@ -7,10 +7,11 @@ import secrets
 from collections.abc import AsyncGenerator
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from honeywatch.analysis.geoip import GeoIPResolver
 from honeywatch.core.config import get_settings
 from honeywatch.db.session import get_session
 
@@ -64,6 +65,23 @@ def verify_credentials(
     return credentials.username
 
 
+def get_geoip_resolver(request: Request) -> GeoIPResolver:
+    """アプリ起動時に構築された GeoIP_Resolver を返す依存性.
+
+    ``lifespan`` で ``app.state.geoip_resolver`` に格納したシングルトンインスタンスを
+    取得する。リクエストごとに ``.mmdb`` を再ロードしないための仕組み。
+
+    Args:
+        request: FastAPI リクエスト（app.state へのアクセスに使用）
+
+    Returns:
+        GeoIPResolver: アプリ全体で共有される Resolver インスタンス
+    """
+    resolver: GeoIPResolver = request.app.state.geoip_resolver
+    return resolver
+
+
 # 型エイリアス（ルートで使用）
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 AuthUser = Annotated[str, Depends(verify_credentials)]
+GeoIPResolverDep = Annotated[GeoIPResolver, Depends(get_geoip_resolver)]

@@ -8,13 +8,16 @@ import { RecentEventsTable } from "../components/RecentEventsTable";
 import { AttackTypeChart } from "../components/AttackTypeChart";
 import { SeverityBreakdown } from "../components/SeverityBreakdown";
 import { RiskRankingTable } from "../components/RiskRankingTable";
+import { CountryRankingTable } from "../components/CountryRankingTable";
+import { GeoMap } from "../components/GeoMap";
 import { useDashboardSummary } from "../hooks/useDashboardSummary";
 import { useTimeline } from "../hooks/useTimeline";
-import { useTopIPs } from "../hooks/useTopIPs";
+import { useGeoTopIPs } from "../hooks/useGeoTopIPs";
 import { useRecentEvents } from "../hooks/useRecentEvents";
 import { useAttackTypes } from "../hooks/useAttackTypes";
 import { useSeveritySummary } from "../hooks/useSeveritySummary";
 import { useRiskRanking } from "../hooks/useRiskRanking";
+import { useCountrySummary } from "../hooks/useCountrySummary";
 
 import { clearCredentials } from "../api/client";
 import type { View } from "../types";
@@ -46,7 +49,8 @@ export function DashboardPage({ onLogout, onNavigate, currentView }: DashboardPa
 
   const { data: summary, loading: summaryLoading } = useDashboardSummary();
   const { data: timeline, loading: timelineLoading } = useTimeline();
-  const { data: topIPs, loading: topIPsLoading } = useTopIPs();
+  // Top IPs は geo 付き（useGeoTopIPs）に切り替え、国表示に対応する
+  const { data: topIPs, loading: topIPsLoading } = useGeoTopIPs();
   const { data: events, loading: eventsLoading } = useRecentEvents(10);
 
   // Phase 2: 分析データ（期間連動）
@@ -55,6 +59,9 @@ export function DashboardPage({ onLogout, onNavigate, currentView }: DashboardPa
   const { data: severity, loading: severityLoading } =
     useSeveritySummary(period);
   const { data: riskRanking, loading: riskLoading } = useRiskRanking(10, period);
+
+  // Phase 3: 国別攻撃件数ランキング（全期間集計）
+  const { data: countrySummary, loading: countryLoading } = useCountrySummary();
 
   return (
     <div className="min-h-screen bg-hw-bg p-6">
@@ -114,6 +121,12 @@ export function DashboardPage({ onLogout, onNavigate, currentView }: DashboardPa
           />
         </div>
 
+        {/* 攻撃元マップ（Geo_Map）。Detection Analysis の直上に全幅で常時表示。
+            緯度経度を持つ IP のみマーカー表示する（Requirement 4.7/4.8）。 */}
+        <div className="mb-6">
+          <GeoMap enabled={true} entries={topIPs} />
+        </div>
+
         {/* === Phase 2: Detection Analysis セクション === */}
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-bold text-gray-100">
@@ -143,9 +156,10 @@ export function DashboardPage({ onLogout, onNavigate, currentView }: DashboardPa
           <SeverityBreakdown data={severity} loading={severityLoading} />
         </div>
 
-        {/* Risk ランキング (全幅) */}
-        <div className="mb-6">
+        {/* Risk ランキング + 国別ランキング (2カラム) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
           <RiskRankingTable data={riskRanking} loading={riskLoading} />
+          <CountryRankingTable data={countrySummary} loading={countryLoading} />
         </div>
 
         {/* 最新イベントテーブル (全幅) */}

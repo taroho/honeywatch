@@ -284,6 +284,48 @@ class AttackEventRepository:
             for row in rows
         ]
 
+    async def get_ip_counts(
+        self,
+        since: datetime | None,
+        until: datetime | None,
+    ) -> list[tuple[str, int]]:
+        """期間内の source_ip 別イベント件数を返す（国別集計の入力）.
+
+        国別集計（CountryAggregator）の入力となる「IP と件数」の一覧を取得する。
+        地理変換は行わず、DB では source_ip 単位の件数集計のみを担う
+        （スキーマ変更なし方針のため、地理情報は DB に保持しない）。
+
+        期間フィルタは AttackEventModel.timestamp に対して両端を含む
+        （since が None でなければ ``>= since``、until が None でなければ ``<= until``）。
+        since / until がいずれも None の場合は全期間を対象とする。
+
+        Args:
+            since: 集計開始日時（両端を含む）。None の場合は下限なし。
+            until: 集計終了日時（両端を含む）。None の場合は上限なし。
+
+        Returns:
+            (source_ip, count) のタプルのリスト。件数の降順で返す
+            （呼び出し側でソートするため順序は問わないが、安定のため降順とする）。
+        """
+        query = select(
+            AttackEventModel.source_ip,
+            func.count(AttackEventModel.id).label("event_count"),
+        )
+
+        # 期間フィルタ（両端を含む）。両方 None の場合はフィルタなし＝全期間。
+        if since is not None:
+            query = query.where(AttackEventModel.timestamp >= since)
+        if until is not None:
+            query = query.where(AttackEventModel.timestamp <= until)
+
+        query = query.group_by(AttackEventModel.source_ip).order_by(
+            func.count(AttackEventModel.id).desc()
+        )
+
+        result = await self._session.execute(query)
+        rows = result.all()
+        return [(row.source_ip, row.event_count) for row in rows]
+
     # === Phase 2: 分析用集計メソッド ===
 
     async def count_by_attack_type(

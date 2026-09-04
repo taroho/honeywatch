@@ -124,6 +124,64 @@ export interface EventListFilters {
   until?: string;
 }
 
+// === Phase 3: GeoIP（地理情報）系の型 ===
+
+/**
+ * IP に対応する地理情報。
+ * 未解決のフィールド（未登録・プライベート IP・DB 未ロード・不正 IP 等）は null。
+ * バックエンド `/geo/*` エンドポイントが返す geo 構造に対応する。
+ */
+export interface GeoLocation {
+  /** ISO 3166-1 alpha-2 形式の国コード（例: JP） */
+  country_code: string | null;
+  /** 国名 */
+  country_name: string | null;
+  /** 地域名（subdivision） */
+  region: string | null;
+  /** 都市名 */
+  city: string | null;
+  /** 緯度（-90〜90） */
+  latitude: number | null;
+  /** 経度（-180〜180） */
+  longitude: number | null;
+}
+
+/**
+ * Geo 付き Top IP エントリ。
+ * 既存 TopIPEntry を拡張しつつ、geo API では first_seen / last_seen が
+ * null になり得るため、当該フィールドを null 許容に上書きする。
+ */
+export interface GeoTopIPEntry extends Omit<TopIPEntry, "first_seen" | "last_seen"> {
+  /** 初回観測日時（ISO8601 文字列、未取得時 null） */
+  first_seen: string | null;
+  /** 最終観測日時（ISO8601 文字列、未取得時 null） */
+  last_seen: string | null;
+  /** 送信元 IP の地理情報（未解決は各フィールド null） */
+  geo: GeoLocation;
+}
+
+/** Geo 付き Top IPs レスポンス */
+export interface GeoTopIPsResponse {
+  ips: GeoTopIPEntry[];
+}
+
+/** 単一 IP の地理情報レスポンス（GET /geo/ips/{source_ip}） */
+export interface IpGeoResponse {
+  source_ip: string;
+  geo: GeoLocation;
+}
+
+/** 国別集計の 1 区分（country_code は "UNKNOWN" を含む） */
+export interface CountryCount {
+  country_code: string;
+  count: number;
+}
+
+/** 国別集計レスポンス（GET /geo/country-summary） */
+export interface CountrySummaryResponse {
+  countries: CountryCount[];
+}
+
 // === Phase 3: ビュー切替 ===
 
 /**

@@ -7,9 +7,12 @@
 
 import type {
   AttackTypesResponse,
+  CountrySummaryResponse,
   DashboardSummary,
   EventListFilters,
   EventsResponse,
+  GeoTopIPsResponse,
+  IpGeoResponse,
   RiskRankingResponse,
   SeveritySummaryResponse,
   TimelineResponse,
@@ -210,6 +213,49 @@ export async function fetchRiskRanking(
   const params = new URLSearchParams({ limit: String(limit), period });
   const response = await fetchWithAuth(
     `${API_BASE}/analysis/risk-ranking?${params}`
+  );
+  return response.json();
+}
+
+// === Phase 3: GeoIP（地理情報）API ===
+
+/** 指定した Source IP の地理情報を取得する（未解決時は geo 各フィールド null） */
+export async function fetchIpGeo(sourceIp: string): Promise<IpGeoResponse> {
+  const response = await fetchWithAuth(
+    `${API_BASE}/geo/ips/${encodeURIComponent(sourceIp)}`
+  );
+  return response.json();
+}
+
+/** Geo 情報付きの Top IPs ランキングを取得する */
+export async function fetchGeoTopIPs(
+  limit: number = 10,
+  period: string = "24h"
+): Promise<GeoTopIPsResponse> {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    period,
+  });
+  const response = await fetchWithAuth(`${API_BASE}/geo/top-ips?${params}`);
+  return response.json();
+}
+
+/**
+ * 国別攻撃件数集計を取得する.
+ *
+ * start / end は任意（ISO8601 文字列）。値が指定された条件のみクエリに付与する。
+ * いずれも未指定なら全期間を集計対象とする（fetchEvents のフィルタ付与パターンに倣う）。
+ */
+export async function fetchCountrySummary(
+  start?: string,
+  end?: string
+): Promise<CountrySummaryResponse> {
+  const params = new URLSearchParams();
+  if (start) params.set("start", start);
+  if (end) params.set("end", end);
+  const query = params.toString();
+  const response = await fetchWithAuth(
+    `${API_BASE}/geo/country-summary${query ? `?${query}` : ""}`
   );
   return response.json();
 }

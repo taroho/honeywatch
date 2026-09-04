@@ -1,11 +1,30 @@
-import type { TopIPEntry } from "../types";
+import type { GeoLocation } from "../types";
+import { formatCountry } from "../utils/format";
+
+/**
+ * TopIPsTable が表示に必要とする最小のエントリ形状。
+ *
+ * 既存の TopIPEntry（first_seen / last_seen が string）と、geo 付きの
+ * GeoTopIPEntry（first_seen / last_seen が string | null）の両方を受けられるよう、
+ * 表示に使うフィールドのみを要求し、geo は任意とする（後方互換）。
+ */
+interface TopIPRow {
+  source_ip: string;
+  event_count: number;
+  /** 送信元 IP の地理情報（任意）。無い・未解決なら「不明」表示 */
+  geo?: GeoLocation;
+}
 
 /**
  * Top IPs テーブルコンポーネント
- * 攻撃数の多い送信元 IP をランキング表示する
+ * 攻撃数の多い送信元 IP をランキング表示する。
+ *
+ * geo を任意で持つエントリを受け付け、geo があれば国表示を付与する。
+ * 既存の TopIPEntry[]（geo 無し）呼び出しとも後方互換（geo 無しは「不明」表示）。
  */
 interface TopIPsTableProps {
-  data: TopIPEntry[];
+  /** 表示対象の IP エントリ配列。各要素は任意で geo（地理情報）を持てる */
+  data: TopIPRow[];
   loading: boolean;
 }
 
@@ -32,12 +51,16 @@ export function TopIPsTable({ data, loading }: TopIPsTableProps) {
               key={ip.source_ip}
               className="flex items-center justify-between py-1.5 border-b border-hw-border last:border-0"
             >
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 min-w-0">
                 <span className="text-xs text-gray-500 w-5">
                   {index + 1}.
                 </span>
                 <span className="text-sm font-mono text-gray-200">
                   {ip.source_ip}
+                </span>
+                {/* 国表示: geo があれば「国名 (国コード)」、無ければ「不明」（Requirement 4.1, 4.3, 4.4） */}
+                <span className="text-xs text-gray-400 truncate">
+                  {formatCountry(ip.geo)}
                 </span>
               </div>
               <span className="text-sm font-bold text-hw-accent">

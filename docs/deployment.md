@@ -260,7 +260,12 @@ docker compose exec worker python -m honeywatch.detection.backfill
 
 攻撃元の国・都市・座標を解決する GeoIP 機能を使う場合は、MaxMind の
 GeoLite2 データベース（.mmdb）を配置する。**未配置でもシステムは動作する**
-（GeoIP が degraded になり、地理情報は NULL のまま収集を継続する）。
+（GeoIP が未ロード状態になり、地理情報は未解決のまま収集・表示を継続する）。
+
+本機能は地理情報を DB に保存せず、API リクエストのたびに送信元 IP を都度解決する
+オンザフライ方式で動作する。DB スキーマ変更・マイグレーション・backfill は不要で、
+過去に収集したイベントも記録時期に関わらず要求のたびに解決されるため、
+配置さえすれば新規・既存を問わず地理情報が付与される。
 
 .mmdb はライセンス上リポジトリに含めていないため、各自で取得・配置する。
 
@@ -275,30 +280,23 @@ GeoLite2 データベース（.mmdb）を配置する。**未配置でもシス�
 scp -i <キーペア>.pem GeoLite2-City.mmdb ubuntu@<EC2のIP>:~/honeywatch/data/geoip/
 ```
 
-配置後、Worker を再起動すると自動で読み込まれる。
+詳細なセットアップ手順（ライセンスキーの発行方法等）は [docs/geoip-setup.md](./geoip-setup.md) も参照。
+
+配置後、API サーバーを再起動すると起動時（lifespan）に .mmdb が読み込まれる。
 
 ```bash
 cd docker
-docker compose restart worker
-# ログに geoip.database_loaded が出れば読み込み成功
-docker compose logs worker | grep geoip
+docker compose restart api
+# GeoIP データベースの読み込み成功を示すログが出れば OK
+docker compose logs api | grep -i geoip
 ```
-
-**既存イベントへの遡及付与（アップグレード時のみ）:**
-
-Phase 3 導入前に収集済みのイベントに地理情報を付与する場合は backfill を実行する。
-
-```bash
-docker compose exec worker python -m honeywatch.analysis.geoip_backfill
-```
-
-新規デプロイの場合は、以降のイベントに自動で地理情報が付与されるため backfill は不要。
 
 `.env` の設定（デフォルトのままで動作する）:
 
 ```bash
 GEOIP_ENABLED=true
-GEOIP_MMDB_PATH=data/geoip/GeoLite2-City.mmdb
+GEOIP_DATABASE_PATH=data/geoip/GeoLite2-City.mmdb
+GEOIP_CACHE_SIZE=10000
 ```
 
 ### 7. 動作確認
@@ -332,8 +330,12 @@ curl -u <user>:<pass> "http://localhost:8000/api/v1/analysis/attack-types?period
 curl -u <user>:<pass> "http://localhost:8000/api/v1/analysis/risk-ranking?period=24h"
 
 # 地理分析の確認（Phase 3・GeoIP 配置時）
-curl -u <user>:<pass> "http://localhost:8000/api/v1/analysis/countries?period=24h"
-curl -u <user>:<pass> "http://localhost:8000/api/v1/analysis/geo-map?period=24h"
+# 国別集計（期間は start/end を ISO 8601 で指定。省略時は全期間）
+curl -u <user>:<pass> "http://localhost:8000/api/v1/geo/country-summary"
+# Top IP に地理情報を付与して取得
+curl -u <user>:<pass> "http://localhost:8000/api/v1/geo/top-ips?period=24h"
+# 個別 IP の地理情報を取得
+curl -u <user>:<pass> "http://localhost:8000/api/v1/geo/ips/<IP>"
 ```
 
 Dashboard 下部の「Detection Analysis」セクションで、攻撃タイプ別集計・Severity 内訳・

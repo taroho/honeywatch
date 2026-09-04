@@ -227,6 +227,11 @@ mypy_check.sh
 # SSH host keys (generated at runtime)
 data/ssh_host_keys/
 
+# GeoIP database (.mmdb) and MaxMind license key
+#   ライセンス条項により .mmdb を再配布しないため、各自で取得・配置する
+data/geoip/
+!data/geoip/.gitkeep
+
 # Frontend dependencies
 frontend/node_modules/
 frontend/dist/

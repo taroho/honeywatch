@@ -1,12 +1,12 @@
-﻿import { useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Header } from "../components/Header";
 import { EventFilters } from "../components/EventFilters";
 import { EventTable } from "../components/EventTable";
 import { Pagination } from "../components/Pagination";
 import { EventDetailModal } from "../components/EventDetailModal";
 import { useEventList } from "../hooks/useEventList";
-import { clearCredentials } from "../api/client";
-import type { AttackEvent, View } from "../types";
+import { clearCredentials, fetchIpGeo } from "../api/client";
+import type { AttackEvent, GeoLocation, View } from "../types";
 
 /**
  * イベント一覧ページ
@@ -46,6 +46,50 @@ export function EventListPage({
   // 一覧の page / filters とは独立に保持するため、モーダルを閉じても一覧状態は維持される。
   const [selectedEvent, setSelectedEvent] = useState<AttackEvent | null>(null);
 
+  // source_ip → GeoLocation のマップ。EventTable の「国」列表示に渡す。
+  // イベント API には geo が含まれないため、表示中ページの source_ip を都度解決する。
+  const [geoByIp, setGeoByIp] = useState<Record<string, GeoLocation>>({});
+
+  // 表示中ページのイベントが変わるたびに、重複排除した source_ip 集合を
+  // fetchIpGeo で解決し geoByIp を構築する（Requirement 4.2: 1ページ最大100件）。
+  // エラーは握りつぶし当該 IP を「不明」表示にフォールバックする（画面をクラッシュさせない）。
+  useEffect(() => {
+    let mounted = true;
+
+    // 表示中ページの source_ip を重複排除
+    const uniqueIps = Array.from(new Set(events.map((e) => e.source_ip)));
+    if (uniqueIps.length === 0) {
+      setGeoByIp({});
+      return;
+    }
+
+    const load = async () => {
+      const results = await Promise.all(
+        uniqueIps.map(async (ip) => {
+          try {
+            const res = await fetchIpGeo(ip);
+            return [ip, res.geo] as const;
+          } catch {
+            // 解決失敗時は null を返し、formatCountry 側で「不明」表示にする
+            return [ip, null] as const;
+          }
+        })
+      );
+      if (!mounted) return;
+      const map: Record<string, GeoLocation> = {};
+      for (const [ip, geo] of results) {
+        if (geo !== null) map[ip] = geo;
+      }
+      setGeoByIp(map);
+    };
+
+    load();
+
+    return () => {
+      mounted = false;
+    };
+  }, [events]);
+
   // ログアウト: 認証情報を破棄してログイン画面へ（DashboardPage と同じ挙動）
   const handleLogout = () => {
     clearCredentials();
@@ -84,11 +128,12 @@ export function EventListPage({
           </div>
         )}
 
-        {/* イベント一覧テーブル。行クリックで詳細モーダルを開く */}
+        {/* イベント一覧テーブル。行クリックで詳細モーダルを開く。geoByIp で国列を表示 */}
         <EventTable
           data={events}
           loading={loading}
           onSelect={setSelectedEvent}
+          geoByIp={geoByIp}
         />
 
         {/* ページ送り UI（pagination が null の間は非表示） */}

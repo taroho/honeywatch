@@ -1,0 +1,45 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1.1 依存ライブラリを追加し `uv sync` を実行する": [
+      {
+        "executionId": "de91133b-4e33-45b1-b2b0-0ec3b11ed476",
+        "chatSessionId": "sess_e3ffdbaa-35ce-4ec1-a367-61390e1578c5",
+        "timestamp": 1788505300782
+      }
+    ],
+    "1.2 `GeoIPSettings` を追加し `Settings` に統合する": [
+      {
+        "executionId": "de91133b-4e33-45b1-b2b0-0ec3b11ed476",
+        "chatSessionId": "sess_e3ffdbaa-35ce-4ec1-a367-61390e1578c5",
+        "timestamp": 1788505302162
+      }
+    ],
+    "1.3 GeoIP データベースの配置と環境設定を行う": [
+      {
+        "executionId": "de91133b-4e33-45b1-b2b0-0ec3b11ed476",
+        "chatSessionId": "sess_e3ffdbaa-35ce-4ec1-a367-61390e1578c5",
+        "timestamp": 1788505303274
+      }
+    ],
+    "10.1 `GeoMap` コンポーネントを実装する（初期リリース対象外）": [
+      {
+        "executionId": "8fd6d98a-fc2f-4b66-b1a9-cb89b5ce5726",
+        "chatSessionId": "sess_d09d49ab-ae0e-4d29-9cfe-e50a9d9577d5",
+        "timestamp": 1788513091687
+      },
+      {
+        "executionId": "bc2cf001-8e39-4789-80a2-a9386e30738a",
+        "chatSessionId": "sess_d09d49ab-ae0e-4d29-9cfe-e50a9d9577d5",
+        "timestamp": 1788513613726
+      }
+    ],
+    "10. Geo_Map（地図表示・オプション）": [
+      {
+        "executionId": "bc2cf001-8e39-4789-80a2-a9386e30738a",
+        "chatSessionId": "sess_d09d49ab-ae0e-4d29-9cfe-e50a9d9577d5",
+        "timestamp": 1788513613955
+      }
+    ]
+  }
+}

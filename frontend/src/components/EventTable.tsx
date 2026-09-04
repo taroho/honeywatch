@@ -1,4 +1,5 @@
-import type { AttackEvent } from "../types";
+import type { AttackEvent, GeoLocation } from "../types";
+import { formatCountry } from "../utils/format";
 
 /**
  * イベント一覧テーブルコンポーネント
@@ -12,9 +13,15 @@ interface EventTableProps {
   loading: boolean;
   /** 行がクリックされたときに対象イベントを通知する（詳細モーダル表示用） */
   onSelect: (event: AttackEvent) => void;
+  /**
+   * source_ip → GeoLocation のマップ（任意）。
+   * イベント API には geo が含まれないため、呼び出し側で別途解決したものを渡す。
+   * 未指定・未解決 IP は「不明」を表示する（後方互換, Requirement 4.3, 4.4）。
+   */
+  geoByIp?: Record<string, GeoLocation>;
 }
 
-export function EventTable({ data, loading, onSelect }: EventTableProps) {
+export function EventTable({ data, loading, onSelect, geoByIp }: EventTableProps) {
   // ローディング中は取得中である旨を表示する
   if (loading) {
     return (
@@ -32,6 +39,8 @@ export function EventTable({ data, loading, onSelect }: EventTableProps) {
             <tr className="text-gray-400 border-b border-hw-border">
               <th className="text-left py-2 pr-4">Time</th>
               <th className="text-left py-2 pr-4">Source IP</th>
+              {/* 国列: Source IP の隣に配置（Requirement 4.2） */}
+              <th className="text-left py-2 pr-4">国</th>
               <th className="text-left py-2 pr-4">Src Port</th>
               <th className="text-left py-2 pr-4">Dst Port</th>
               <th className="text-left py-2 pr-4">Protocol</th>
@@ -42,7 +51,7 @@ export function EventTable({ data, loading, onSelect }: EventTableProps) {
             {data.length === 0 ? (
               // 0 件時は空状態を表示する（Requirement 1.3）
               <tr>
-                <td colSpan={6} className="text-gray-500 py-4 text-center">
+                <td colSpan={7} className="text-gray-500 py-4 text-center">
                   イベントがありません
                 </td>
               </tr>
@@ -71,6 +80,10 @@ export function EventTable({ data, loading, onSelect }: EventTableProps) {
                   {/* Source IP: 等幅フォントで表示 */}
                   <td className="py-2 pr-4 font-mono text-gray-200">
                     {event.source_ip}
+                  </td>
+                  {/* 国: source_ip に対応する geo を表示。未解決・未指定は「不明」（Requirement 4.3, 4.4） */}
+                  <td className="py-2 pr-4 text-gray-400 text-xs">
+                    {formatCountry(geoByIp?.[event.source_ip])}
                   </td>
                   {/* Src Port: 送信元ポート */}
                   <td className="py-2 pr-4 text-gray-400">

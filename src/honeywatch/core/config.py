@@ -88,6 +88,23 @@ class APISettings(BaseSettings):
     auth_password: str = "changeme"
 
 
+class GeoIPSettings(BaseSettings):
+    """GeoIP（GeoLite2）設定.
+
+    MaxMind GeoLite2 データベースの参照に関する設定を環境変数
+    （GEOIP_ プレフィックス）から型安全に読み込む。
+    """
+
+    model_config = SettingsConfigDict(env_prefix="GEOIP_")
+
+    # GeoLite2-City.mmdb ファイルのパス
+    database_path: str = "data/geoip/GeoLite2-City.mmdb"
+    # LRU キャッシュのエントリ上限
+    cache_size: int = 10000
+    # 機能の有効/無効（無効時は常に未解決を返す）
+    enabled: bool = True
+
+
 class Settings(BaseSettings):
     """アプリケーション全体の設定を統合するルート設定クラス."""
 
@@ -107,6 +124,7 @@ class Settings(BaseSettings):
     redis: RedisSettings = RedisSettings()
     honeypot: HoneypotSettings = HoneypotSettings()
     api: APISettings = APISettings()
+    geoip: GeoIPSettings = GeoIPSettings()
 
 
 def get_settings() -> Settings:
