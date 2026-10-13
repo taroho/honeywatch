@@ -105,6 +105,35 @@ class GeoIPSettings(BaseSettings):
     enabled: bool = True
 
 
+class CredentialSettings(BaseSettings):
+    """ログインフォーム認証情報の収集設定.
+
+    HTTP ログインフォームで収集する email / password の保存時に適用する
+    最大文字数（Max_Credential_Length）を環境変数（CREDENTIAL_ プレフィックス）
+    から読み込む。環境変数名は ``CREDENTIAL_MAX_CREDENTIAL_LENGTH``。
+    """
+
+    model_config = SettingsConfigDict(env_prefix="CREDENTIAL_")
+
+    # 保存時に適用する各フィールドの最大文字数（要件 5.2〜5.4）。
+    # 範囲外の値は max_credential_length property 側で 256 にフォールバックする。
+    max_credential_length_raw: int = 256
+
+    @property
+    def max_credential_length(self) -> int:
+        """有効な Max_Credential_Length を返す.
+
+        設定値が 1〜4096 の範囲内であればその値を、範囲外であれば既定値 256 を返す。
+
+        Returns:
+            有効な最大文字数。範囲外の場合は既定値 256。
+        """
+        value = self.max_credential_length_raw
+        if 1 <= value <= 4096:
+            return value
+        return 256
+
+
 class Settings(BaseSettings):
     """アプリケーション全体の設定を統合するルート設定クラス."""
 
@@ -125,8 +154,25 @@ class Settings(BaseSettings):
     honeypot: HoneypotSettings = HoneypotSettings()
     api: APISettings = APISettings()
     geoip: GeoIPSettings = GeoIPSettings()
+    credential: CredentialSettings = CredentialSettings()
 
 
 def get_settings() -> Settings:
     """アプリケーション設定のインスタンスを取得する."""
     return Settings()
+
+
+def get_max_credential_length() -> int:
+    """設定から Max_Credential_Length を取得する.
+
+    設定の読み取りや検証に失敗した場合（例: 環境変数に非整数文字列が指定され
+    pydantic の ``ValidationError`` が送出される場合など）は、例外を送出せず
+    既定値 256 を返す（要件 5.4）。
+
+    Returns:
+        有効な最大文字数。読み取り/検証失敗時は既定値 256。
+    """
+    try:
+        return get_settings().credential.max_credential_length
+    except Exception:  # 設定読み取り/検証失敗時のフォールバック（要件 5.4）
+        return 256

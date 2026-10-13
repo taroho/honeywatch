@@ -1,0 +1,344 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1.1 `CredentialSettings` と `get_max_credential_length` を追加する": [
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791852466371
+      },
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791852487548
+      },
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791853185266
+      }
+    ],
+    "2.1 `HTTPEventData` に email / password フィールドを追加する": [
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791852468555
+      },
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791852489894
+      },
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791853186387
+      }
+    ],
+    "3.1 `CredentialAttackRule` に HTTP 用フィールドを追加する": [
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791852469611
+      },
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791852490633
+      },
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791853187463
+      }
+    ],
+    "3.2 `detection_rules.yaml` に HTTP ルールを追記する": [
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791852470902
+      },
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791853199713
+      },
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791853549101
+      }
+    ],
+    "4.1 `_truncate` と `CredentialSubmission`、`_extract_credentials` を実装する": [
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791852471444
+      },
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791853198988
+      },
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791853549924
+      }
+    ],
+    "5. Checkpoint - 下位ロジックのテストが通ることを確認": [
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791852472179
+      },
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791853841182
+      }
+    ],
+    "6.1 `/login` 専用分岐とフォーム・メソッド・サイズ制御を実装する": [
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791852472869
+      },
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791853846494
+      },
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791854182723
+      }
+    ],
+    "7.1 POST /login でイベントを生成し発行して 401 を返す": [
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791852473596
+      },
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791854193603
+      },
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791854203356
+      }
+    ],
+    "8. Checkpoint - Honeypot のテストが通ることを確認": [
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791852474163
+      }
+    ],
+    "9.1 `_is_credential_attack` を protocol 分岐に変更する": [
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791852474853
+      },
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791854226576
+      },
+      {
+        "executionId": "de876055-4690-4ab1-b9ea-14fe98253331",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791854582349
+      }
+    ],
+    "10.1 検証スクリプトで pytest / mypy / ruff を実行し結果を確認する": [
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791852475467
+      }
+    ],
+    "1. 設定レイヤー: Max_Credential_Length のクランプ実装": [
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791853185963
+      }
+    ],
+    "2. イベントデータモデル: HTTPEventData の後方互換拡張": [
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791853187021
+      }
+    ],
+    "3. 検知ルール: CredentialAttackRule の HTTP 対応": [
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791853549534
+      }
+    ],
+    "4. Honeypot: 認証情報の抽出・切り詰め（純粋ロジック）": [
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791853550232
+      }
+    ],
+    "1.2 Max_Credential_Length クランプの property テストを書く": [
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791853556986
+      },
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791853834919
+      }
+    ],
+    "1.3 Max_Credential_Length の example テストを書く": [
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791853558105
+      },
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791853835812
+      }
+    ],
+    "4.2 切り詰めの property テストを書く": [
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791853559499
+      },
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791853829355
+      }
+    ],
+    "4.3 form 抽出 round-trip の property テストを書く": [
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791853560981
+      },
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791853830767
+      }
+    ],
+    "4.4 欠落・空フィールドの property テストを書く": [
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791853562328
+      },
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791853832134
+      }
+    ],
+    "4.5 form 解析失敗の edge テストを書く": [
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791853563477
+      },
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791853833496
+      }
+    ],
+    "6. Honeypot: ログインフォーム提供とリクエスト処理分岐": [
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791854183973
+      }
+    ],
+    "7. Honeypot: 認証情報イベントの生成と発行": [
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791854203815
+      }
+    ],
+    "6.2 ログインフォーム提供の example テストを書く": [
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791854209894
+      }
+    ],
+    "6.3 ボディサイズ境界の edge テストを書く": [
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791854211148
+      }
+    ],
+    "6.4 許可メソッドの property/列挙テストを書く": [
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791854213120
+      }
+    ],
+    "7.2 POST→単一イベント発行・401 の property テストを書く": [
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791854214352
+      }
+    ],
+    "7.3 raw_data 構造化反映の property テストを書く": [
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791854215723
+      }
+    ],
+    "7.4 構造化保存は 2 項目のみの property テストを書く": [
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791854217292
+      }
+    ],
+    "7.5 password 平文のログ非漏洩 property テストを書く": [
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791854218664
+      }
+    ],
+    "7.6 欠損 null・接続エラー・基本フィールドの example/edge テストを書く": [
+      {
+        "executionId": "5599389a-3298-41a9-a749-d3031854fca8",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791854219979
+      }
+    ],
+    "9. 分類器: HTTP 認証情報攻撃の分類と SSH 回帰防止": [
+      {
+        "executionId": "de876055-4690-4ab1-b9ea-14fe98253331",
+        "chatSessionId": "sess_0f813462-1786-4932-a455-50f4ce0e9fd2",
+        "timestamp": 1791854583018
+      }
+    ]
+  }
+}

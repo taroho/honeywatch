@@ -132,18 +132,46 @@ class AttackClassifier:
         return any(pattern in target for target in targets for pattern in patterns)
 
     def _is_credential_attack(self, event: AttackEvent) -> bool:
-        """既知の弱いユーザー名/パスワードによる攻撃か判定する."""
-        if event.protocol != "ssh":
-            return False
+        """既知の弱い資格情報による攻撃か判定する.
 
+        protocol ごとに判定ロジックを分岐する:
+        - ssh : 既存ロジックを完全温存（username / password の弱リスト照合）。要件 4.5
+        - http: event_type == "http_login_attempt" のときのみ email / password を
+                弱リストと完全一致照合する。要件 4.1〜4.4
+        それ以外（通常の http_request を含む）は credential_attack に該当しない。
+        """
         rule = self._rules.attack_types.credential_attack
-        username = event.raw_data.get("username")
-        password = event.raw_data.get("password")
 
-        username_match = isinstance(username, str) and username in rule.usernames
-        password_match = isinstance(password, str) and password in rule.passwords
+        # SSH 分岐: 既存ロジックをそのまま温存する（SSH 回帰防止・要件 4.5）
+        if event.protocol == "ssh":
+            username = event.raw_data.get("username")
+            password = event.raw_data.get("password")
 
-        return username_match or password_match
+            username_match = isinstance(username, str) and username in rule.usernames
+            password_match = isinstance(password, str) and password in rule.passwords
+
+            return username_match or password_match
+
+        # HTTP 分岐: ログインフォームの認証試行（http_login_attempt）のみ対象（要件 4.1）
+        if event.protocol == "http" and event.event_type == "http_login_attempt":
+            # Detection_Rules で HTTP 判定が無効化されている場合は非該当（要件 4.2 の WHERE 条件）
+            if not rule.http_enabled:
+                return False
+
+            email = event.raw_data.get("email")
+            password = event.raw_data.get("password")
+
+            # 非空 email が弱リストに完全一致するか（None・空文字は非該当・要件 4.3, 4.4）
+            email_match = isinstance(email, str) and email != "" and email in rule.emails
+            # 非空 password が弱リストに完全一致するか（None・空文字は非該当・要件 4.3, 4.4）
+            password_match = (
+                isinstance(password, str) and password != "" and password in rule.passwords
+            )
+
+            return email_match or password_match
+
+        # 通常の http_request や他プロトコルは credential_attack に該当しない
+        return False
 
     def _is_brute_force(self, event: AttackEvent, context: IPContext) -> bool:
         """時間窓内の反復試行（Brute Force）か判定する."""

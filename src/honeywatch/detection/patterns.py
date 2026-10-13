@@ -45,6 +45,14 @@ class CredentialAttackRule(BaseModel):
     protocol: str = "ssh"
     usernames: list[str] = Field(default_factory=list)
     passwords: list[str] = Field(default_factory=list)
+    # --- HTTP Credential Attack 用（本機能で追加）---
+    # HTTP ログインフォーム（http_login_attempt）の credential_attack 判定を
+    # 有効化するフラグ。要件 4.2 の WHERE 条件に対応し、False のとき HTTP 判定を行わない。
+    # YAML 未指定でもデフォルト（True）が効くため、既存設定ファイルと後方互換を保つ。
+    http_enabled: bool = True
+    # 既知の弱い email リスト。HTTP の credential_attack 判定で email の完全一致照合に使う。
+    # YAML 未指定でも空リストがデフォルトとなり後方互換を保つ（passwords は SSH と共用）。
+    emails: list[str] = Field(default_factory=list)
 
 
 class CommandInjectionRule(BaseModel):

@@ -43,13 +43,21 @@ attack_types:
       - "oracle"
       - "postgres"
       - "ubuntu"
-    passwords: # よく使われる弱いパスワード
+    passwords: # よく使われる弱いパスワード（SSH / HTTP で共用）
       - "123456"
       - "password"
       - "admin"
       - "root"
       - "12345678"
       - "qwerty"
+    # --- HTTP ログインフォーム（http_login_attempt）の判定設定 ---
+    http_enabled: true # HTTP 経由の credential_attack 判定を有効化（false で無効）
+    emails: # Honeypot でよく狙われる既知の弱い/一般的な email
+      - "admin@example.com"
+      - "root@localhost"
+      - "test@test.com"
+      - "admin@admin.com"
+      - "user@example.com"
 
   # コマンドインジェクション試行
   command_injection:

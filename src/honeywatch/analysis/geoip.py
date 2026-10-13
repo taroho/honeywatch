@@ -95,6 +95,8 @@ class GeoIPResolver:
         self._reader: geoip2.database.Reader | None = None
         # プロセス内 LRU キャッシュ（挿入順を保持し、上限超過時に最古を追い出す）
         self._cache: OrderedDict[str, GeoLocation] = OrderedDict()
+        # 未ロード警告はインスタンスにつき初回1回だけ出す（ログ洪水防止）
+        self._unavailable_warned: bool = False
 
     @classmethod
     def load(cls, settings: GeoIPSettings) -> "GeoIPResolver":
@@ -173,9 +175,12 @@ class GeoIPResolver:
         """
         # 1. 無効化または未ロード（Requirement 1.6, 2.6）
         if not self._enabled or self._reader is None:
-            if self._enabled and self._reader is None:
-                # 有効だがロードされていない場合のみ、DB 利用不可を警告する
+            # 有効だがロードされていない場合のみ、DB 利用不可を警告する。
+            # resolve は IP ごとに多数回呼ばれるため、警告はインスタンスにつき
+            # 初回1回だけ出力してログ洪水を防ぐ（以降は無言で未解決を返す）。
+            if self._enabled and self._reader is None and not self._unavailable_warned:
                 logger.warning("geoip database is not available")
+                self._unavailable_warned = True
             return GeoLocation.unresolved()
 
         # 2. None / 空文字 / 解析不能な文字列（Requirement 2.4）

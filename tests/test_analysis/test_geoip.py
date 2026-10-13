@@ -219,6 +219,24 @@ def test_resolve_when_unloaded_logs_warning(unloaded_resolver: GeoIPResolver) ->
     assert len(warning_logs) == 1
 
 
+def test_resolve_when_unloaded_warns_only_once_across_calls(
+    unloaded_resolver: GeoIPResolver,
+) -> None:
+    """未ロード Resolver で resolve を複数回呼んでも警告は合計1件だけ（ログ洪水防止）.
+
+    resolve は geo 系 API で IP 件数ぶん多数回呼ばれるため、未ロード時の
+    「geoip database is not available」警告はインスタンスにつき初回1回のみ
+    出力する。2回目以降は無言で未解決を返す。
+    """
+    with capture_logs() as logs:
+        for _ in range(3):
+            location = unloaded_resolver.resolve("8.8.8.8")
+            assert location == GeoLocation.unresolved()
+
+    warning_logs = [e for e in logs if e.get("log_level") == "warning"]
+    assert len(warning_logs) == 1
+
+
 def test_resolve_disabled_returns_unresolved_without_warning(
     disabled_resolver: GeoIPResolver,
 ) -> None:

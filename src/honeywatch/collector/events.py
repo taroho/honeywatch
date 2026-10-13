@@ -38,6 +38,11 @@ class HTTPEventData(BaseModel):
     user_agent: str = Field(default="", description="User-Agent ヘッダー値")
     body_preview: str | None = Field(default=None, description="リクエストボディ先頭 1024 バイト")
     status_code: int = Field(default=200, description="返却したレスポンスのステータスコード")
+    # --- ログインフォーム認証情報（http_login_attempt 用）---
+    # http_login_attempt 以外（既存の http_request / ssh_* イベント）では None となり、
+    # model_dump() 形状は「新フィールドが None で加わる」だけで後方互換を保つ。
+    email: str | None = Field(default=None, description="抽出した email（切り詰め後、平文）")
+    password: str | None = Field(default=None, description="抽出した password（切り詰め後、平文）")
 
 
 class AttackEvent(BaseModel):
