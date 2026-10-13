@@ -368,6 +368,30 @@ class HTTPHoneypot(BaseHoneypot):
 
         # GET: ログインフォームを 200 で返す（要件 1.1〜1.4）。
         if method == "GET":
+            # ログインページへのアクセス自体も観測価値があるため、他パスと同様に
+            # http_request イベントとして記録する（email/password は未送信なので None）。
+            source_ip = request.remote or "0.0.0.0"
+            peername = (
+                request.transport.get_extra_info("peername") if request.transport else None
+            )
+            source_port = peername[1] if peername else 0
+            get_event_data = HTTPEventData(
+                method=method,
+                path=request.path,
+                headers={k: v for k, v in request.headers.items()},
+                user_agent=request.headers.get("User-Agent", ""),
+                body_preview=None,
+                status_code=200,
+            )
+            get_event = AttackEvent(
+                source_ip=source_ip,
+                source_port=source_port,
+                destination_port=self._reported_port,
+                protocol="http",
+                event_type="http_request",
+                raw_data=get_event_data.model_dump(),
+            )
+            await self.emit_event(get_event)
             logger.info(
                 "http_honeypot.login_form",
                 method=method,
