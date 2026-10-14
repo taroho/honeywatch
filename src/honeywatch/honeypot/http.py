@@ -96,6 +96,30 @@ MAX_BODY_SIZE = 1_048_576
 # これ以外のメソッドは 405 を返す。
 LOGIN_ALLOWED_METHODS = {"GET", "POST"}
 
+# body_preview に保持する生ボディの先頭バイト数（既存 _handle_request と同一値）。
+# 攻撃者が送信した生ペイロードの観測用。1 MB 上限（MAX_BODY_SIZE）とは別レイヤーで、
+# あくまで「保存する断片の長さ」を表す（修正 spec 7.01）。
+BODY_PREVIEW_LIMIT = 1024
+
+
+def _body_preview_from_bytes(body: bytes) -> str | None:
+    """生ボディの先頭 BODY_PREVIEW_LIMIT バイトを文字列化する（修正 spec 7.01）.
+
+    既存 ``_handle_request`` と同一規則で、全リクエスト経路の ``body_preview``
+    表現を一貫させる。非空なら先頭 1024 バイトを UTF-8（デコード不能バイトは
+    置換）で文字列化し、空ボディは None を返す。``errors="replace"`` のため
+    UnicodeDecodeError を送出しない。
+
+    Args:
+        body: リクエストボディのバイト列。
+
+    Returns:
+        先頭 BODY_PREVIEW_LIMIT バイトの文字列。空ボディ時は None。
+    """
+    if not body:
+        return None
+    return body[:BODY_PREVIEW_LIMIT].decode("utf-8", errors="replace")
+
 
 @dataclass
 class CredentialSubmission:
@@ -229,12 +253,11 @@ class HTTPHoneypot(BaseHoneypot):
         peername = request.transport.get_extra_info("peername") if request.transport else None
         source_port = peername[1] if peername else 0
 
-        # リクエストボディの先頭 1024 バイトを取得
+        # リクエストボディの先頭 1024 バイトを取得（共通ヘルパで文字列化）
         body_preview: str | None = None
         try:
             body_bytes = await request.read()
-            if body_bytes:
-                body_preview = body_bytes[:1024].decode("utf-8", errors="replace")
+            body_preview = _body_preview_from_bytes(body_bytes)
         except Exception as e:  # noqa: BLE001 — ボディ取得失敗は記録して継続
             logger.debug("http_honeypot.body_read_failed", error=str(e))
 
@@ -432,6 +455,12 @@ class HTTPHoneypot(BaseHoneypot):
         email_value = submission.email if submission.email else None
         password_value = submission.password if submission.password else None
 
+        # 読み取り済みボディ（raw_body）を再利用して生ボディ先頭断片を保持する
+        # （修正 spec 7.01 要件 1.1, 1.4）。raw_body はこの時点で必ず bytes
+        # （上限超過の None は手前の 413 経路で早期 return 済み）。空ボディは None
+        # （要件 1.3）。構造化フィールド（email/password）と併せて両方保持する。
+        body_preview = _body_preview_from_bytes(raw_body)
+
         source_ip = request.remote or "0.0.0.0"
         peername = request.transport.get_extra_info("peername") if request.transport else None
         source_port = peername[1] if peername else 0
@@ -441,7 +470,7 @@ class HTTPHoneypot(BaseHoneypot):
             path=request.path,
             headers={k: v for k, v in request.headers.items()},
             user_agent=request.headers.get("User-Agent", ""),
-            body_preview=None,
+            body_preview=body_preview,
             status_code=401,
             email=email_value,
             password=password_value,

@@ -49,7 +49,7 @@ HoneyWatch は **Honeypot-Based Attack Monitoring & Analysis Platform** です�
 ```
 Cloud (AWS)
 └── HoneyWatch 専用 VM (EC2)
-     ├── Honeypot コンテナ（外部公開: SSH 2222, HTTP 8080）
+     ├── Honeypot コンテナ（外部公開: SSH 22, HTTP 80 / 8080）
      ├── Event Worker コンテナ
      ├── API + Dashboard コンテナ（管理用: 8000, 3000）
      ├── PostgreSQL コンテナ（内部のみ）
@@ -57,6 +57,13 @@ Cloud (AWS)
 ```
 
 - Security Group で Honeypot ポートのみ全開放、管理ポートは自分の IP のみ許可
+
+- HTTP Honeypot はホスト **80 番**でも待ち受ける（コンテナ内は 8080 リッスンのまま、ホスト 80/8080 → コンテナ 8080 にマッピング）。80 番で待つことで無差別 Web スキャン（WordPress ログイン総当たり・PHP 脆弱性探索・`.env` 探索等）を広く観測する。従来の 8080 も併せて公開する。
+- 本番で 80 を観測対象にするには、Security Group のインバウンドに TCP 80 を全開放（`0.0.0.0/0`）で追加する。
+- 公開ポートの整理:
+  - 攻撃観測用（全開放）: SSH `22`、HTTP `80` / `8080`
+  - 管理用（自分の IP のみ許可）: 管理 SSH `2200`、API `8000`、Dashboard `3000`
+  - 外部非公開（`127.0.0.1` バインド）: PostgreSQL `5432`、Redis `6379`
 - 開発時はローカル Docker Compose で同一構成を再現できるようにする
 
 ## セキュリティ方針
