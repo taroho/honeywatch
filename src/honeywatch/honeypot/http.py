@@ -96,19 +96,22 @@ MAX_BODY_SIZE = 1_048_576
 # これ以外のメソッドは 405 を返す。
 LOGIN_ALLOWED_METHODS = {"GET", "POST"}
 
-# body_preview に保持する生ボディの先頭バイト数（既存 _handle_request と同一値）。
-# 攻撃者が送信した生ペイロードの観測用。1 MB 上限（MAX_BODY_SIZE）とは別レイヤーで、
-# あくまで「保存する断片の長さ」を表す（修正 spec 7.01）。
-BODY_PREVIEW_LIMIT = 1024
+# body_preview に保持する生ボディの先頭バイト数。
+# 攻撃者が送信した生ペイロードの観測用。1 KB を超える RCE ペイロード
+# （Base64 エンコードされた複数コマンドや末尾のダウンロード元 URL 等。
+# 例: CVE-2024-4577 系の PHP-CGI argument injection）を末尾まで取り切るため
+# 8 KB とする（修正 spec 7.02。従来は 1024）。読み取り上限 MAX_BODY_SIZE（1 MB）
+# とは別レイヤーで、あくまで「保存する断片の長さ」を表す。
+BODY_PREVIEW_LIMIT = 8192
 
 
 def _body_preview_from_bytes(body: bytes) -> str | None:
     """生ボディの先頭 BODY_PREVIEW_LIMIT バイトを文字列化する（修正 spec 7.01）.
 
-    既存 ``_handle_request`` と同一規則で、全リクエスト経路の ``body_preview``
-    表現を一貫させる。非空なら先頭 1024 バイトを UTF-8（デコード不能バイトは
-    置換）で文字列化し、空ボディは None を返す。``errors="replace"`` のため
-    UnicodeDecodeError を送出しない。
+    全リクエスト経路（``_handle_request`` / ``_handle_login``）の ``body_preview``
+    表現を一貫させる。非空なら先頭 BODY_PREVIEW_LIMIT バイトを UTF-8（デコード
+    不能バイトは置換）で文字列化し、空ボディは None を返す。``errors="replace"``
+    のため UnicodeDecodeError を送出しない。
 
     Args:
         body: リクエストボディのバイト列。
@@ -253,7 +256,7 @@ class HTTPHoneypot(BaseHoneypot):
         peername = request.transport.get_extra_info("peername") if request.transport else None
         source_port = peername[1] if peername else 0
 
-        # リクエストボディの先頭 1024 バイトを取得（共通ヘルパで文字列化）
+        # リクエストボディの先頭 BODY_PREVIEW_LIMIT バイトを取得（共通ヘルパで文字列化）
         body_preview: str | None = None
         try:
             body_bytes = await request.read()
